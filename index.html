@@ -735,12 +735,12 @@
       .form-grid {
         grid-template-columns: 1fr !important;
         width: 100%;
-        overflow: hidden;
+        /* overflow: hidden は iOS ネイティブUIを切り取るため使用しない */
       }
       .form-group {
         width: 100%;
         min-width: 0;
-        overflow: hidden;
+        /* overflow: hidden は iOS ネイティブUIを切り取るため使用しない */
       }
     }
   </style>
