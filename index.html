@@ -68,7 +68,8 @@
       font-size: 11px;
       line-height: 1.4;
       text-align: right;
-      flex-shrink: 0;
+      flex-shrink: 1;
+      min-width: 0;
     }
     .date-badge {
       display: inline-block;
@@ -648,22 +649,39 @@
     }
 
     @media (max-width: 430px) {
+      /* ヘッダー全体：overflow:visibleでクリップしない */
+      .app-header {
+        overflow: visible !important;
+        padding: 8px 12px !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+      }
+      /* h1：縮めてバッジにスペースを渡す */
+      .app-header h1 {
+        flex-shrink: 1 !important;
+        min-width: 0 !important;
+      }
+      .title-line1 { font-size: 16px !important; }
+      .title-line2 { font-size: 11px !important; }
       /* ヘッダー日付枠 */
       #today-badge {
+        flex-shrink: 0 !important;
+        min-width: 0 !important;
+        max-width: 44% !important;
+        text-align: right !important;
+        overflow: visible !important;
+      }
+      .date-badge {
         font-size: 10px !important;
         padding: 2px 5px !important;
-        max-width: 40vw !important;
         white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        flex-shrink: 1 !important;
+        display: inline-block !important;
       }
       /* 法人名 */
       .org-name {
         font-size: 8px !important;
         white-space: nowrap !important;
-        max-width: 40vw !important;
-        overflow: hidden !important;
       }
       /* 出発時刻入力 */
       #depart-time {
@@ -672,15 +690,16 @@
         min-width: 0 !important;
         box-sizing: border-box !important;
       }
-      /* フォームグリッド */
+      /* フォームグリッド・フォームグループ */
       .form-grid {
         grid-template-columns: 1fr !important;
         width: 100% !important;
-        overflow: hidden !important;
+        box-sizing: border-box !important;
       }
-      /* ヘッダー全体 */
-      header, .app-header {
-        overflow: hidden !important;
+      .form-group {
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
       }
     }
 
