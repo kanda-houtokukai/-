@@ -556,7 +556,8 @@
       #print-section {
         order: 1;
         flex: 0 0 auto;
-        padding: 0;
+        padding: 0 15mm;
+        box-sizing: border-box;
         overflow: hidden;
       }
 
@@ -780,7 +781,7 @@
 
       <!-- 印刷ボタン（ルート一覧の直下） -->
       <div class="no-print" style="margin-top:24px;padding-top:20px;border-top:2px solid var(--gray-200);text-align:center;">
-        <button id="print-btn" onclick="if(gMap){google.maps.event.trigger(gMap,'resize');setTimeout(()=>window.print(),500);}else{window.print();}"
+        <button id="print-btn" onclick="(function(){if(gMap){const b=new google.maps.LatLngBounds();gMarkers.forEach(m=>b.extend(m.getPosition()));if(!b.isEmpty())gMap.fitBounds(b,{top:10,right:10,bottom:10,left:10});google.maps.event.trigger(gMap,'resize');setTimeout(()=>window.print(),1000);}else{window.print();}})()"
                 style="display:none;padding:14px 36px;font-size:16px;font-weight:700;
                        background:#f57c00;color:#fff;border:none;border-radius:12px;
                        cursor:pointer;transition:background .15s,transform .1s,box-shadow .15s;
