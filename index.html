@@ -489,6 +489,10 @@
         background: #fff !important;
         font-size: 11pt;
         color: #111;
+        /* スマホ印刷：ビューポート幅をA4に固定してページ超えを防ぐ */
+        width: 210mm !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
 
       /* 不要な要素を親から構造ごと消す（子要素の残留高さを防ぐ） */
@@ -601,6 +605,14 @@
       .form-grid { grid-template-columns: 1fr; }
       .route-item { gap: 10px; }
       .time-eta { font-size: 16px; }
+      /* 日付入力が枠からはみ出ないよう修正 */
+      .card { overflow: visible; }
+      input[type="date"], input[type="time"] {
+        max-width: 100%;
+        min-width: 0;
+        font-size: 14px;
+      }
+      .input-lg { font-size: 15px !important; }
     }
   </style>
 </head>
