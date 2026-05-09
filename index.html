@@ -66,17 +66,22 @@
     .app-header .badge {
       margin-left: auto;
       font-size: 11px;
-      background: rgba(255,255,255,.2);
-      padding: 4px 10px;
-      border-radius: 12px;
-      white-space: nowrap;
       line-height: 1.4;
       text-align: right;
       flex-shrink: 0;
     }
-    .badge-sub {
+    .date-badge {
+      display: inline-block;
+      background: rgba(255,255,255,.2);
+      border: 1px solid rgba(255,255,255,.5);
+      border-radius: 8px;
+      padding: 2px 8px;
+      white-space: nowrap;
+    }
+    .org-name {
       font-size: 9px;
       opacity: 0.9;
+      margin-top: 2px;
       white-space: nowrap;
     }
 
@@ -874,8 +879,9 @@ function setStep(n) {
 (function init() {
   const d = new Date();
   document.getElementById('today-badge').innerHTML =
+    '<span class="date-badge">' +
     d.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'short' }) +
-    '<br><span class="badge-sub">児童発達支援センターきらり</span>';
+    '</span><br><span class="org-name">児童発達支援センターきらり</span>';
   const yyyy = d.getFullYear();
   const mm   = String(d.getMonth() + 1).padStart(2, '0');
   const dd   = String(d.getDate()).padStart(2, '0');
