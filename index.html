@@ -654,23 +654,36 @@
         white-space: nowrap;
         max-width: 42vw;
         overflow: hidden;
+        display: inline-block;
       }
       .org-name {
         font-size: 8px;
         white-space: nowrap;
       }
       .header-right {
+        flex-shrink: 0;
         max-width: 45%;
         text-align: right;
+        overflow: hidden;
       }
+      /* 出発時刻・全input要素のはみ出し防止 */
       input[type="time"],
-      input[type="text"] {
+      input[type="text"],
+      input[type="date"],
+      input[type="number"],
+      select {
         width: 100% !important;
         max-width: 100% !important;
         box-sizing: border-box !important;
       }
+      .form-grid {
+        grid-template-columns: 1fr !important;
+        width: 100%;
+        overflow: hidden;
+      }
       .form-group {
         width: 100%;
+        min-width: 0;
         overflow: hidden;
       }
     }
@@ -687,7 +700,7 @@
     <span class="title-line1">送迎ルート</span>
     <span class="title-line2">最適化システム</span>
   </h1>
-  <span class="badge header-right" id="today-badge"></span>
+  <span class="badge header-right" id="today-badge" style="flex-shrink:0;max-width:45%;overflow:hidden;"></span>
 </header>
 
 <div id="toast-container"></div>
@@ -785,7 +798,7 @@
       <div class="form-grid" style="margin-bottom:16px;">
         <div class="form-group">
           <label>出発時刻<span class="label-note" id="depart-time-note" style="margin-left:6px;"></span></label>
-          <input type="time" id="depart-time" value="08:30" class="input-lg">
+          <input type="time" id="depart-time" value="08:30" class="input-lg" style="width:100%;max-width:100%;box-sizing:border-box;">
         </div>
       </div>
       <button class="btn btn-success btn-lg btn-full" id="opt-btn" onclick="optimizeRoute()">
