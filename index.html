@@ -809,6 +809,7 @@
 // ─────────────────────────────────────────
 let children  = [];   // { id, name, address, days, boardMin, arrivalHope, present, latlng }
 let mapsReady = false;
+let adoptedDepartureTime = null;  // 「この時刻を採用」で確定した出発時刻
 let gMap      = null;
 let gRenderer = null;
 let gMarkers  = [];   // カスタムマーカー（クリア用）
@@ -844,7 +845,10 @@ function setStep(n) {
   const d = new Date();
   document.getElementById('today-badge').textContent =
     d.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
-  document.getElementById('route-date').value = d.toISOString().slice(0, 10);
+  const yyyy = d.getFullYear();
+  const mm   = String(d.getMonth() + 1).padStart(2, '0');
+  const dd   = String(d.getDate()).padStart(2, '0');
+  document.getElementById('route-date').value = `${yyyy}-${mm}-${dd}`;
 
   SETTING_KEYS.forEach(id => {
     const el = document.getElementById(id);
@@ -1092,6 +1096,7 @@ async function loadSheets() {
 
   setLoading('load-btn', true, '読み込み中…');
   document.getElementById('sheet-load-status').textContent = '';
+  adoptedDepartureTime = null;  // シート再読み込み時は採用済み時刻をリセット
 
   try {
     // ── STEP 1: 事業所情報シート ──────────────────
@@ -1464,7 +1469,8 @@ async function optimizeRoute() {
   const center     = document.getElementById('center-addr').value.trim();
   const stopMin    = parseInt(document.getElementById('stop-min').value) || 3;
   const dateStr    = document.getElementById('route-date').value;
-  const timeStr    = document.getElementById('depart-time').value;
+  // 「この時刻を採用」で確定した時刻を優先。なければ入力欄の値を使用
+  const timeStr    = adoptedDepartureTime || document.getElementById('depart-time').value;
   const routeType  = document.getElementById('route-type').value;
   const arrTimeStr = document.getElementById('arrival-time').value;
 
@@ -2239,6 +2245,7 @@ async function calcRecommendedDeparture() {
 }
 
 function adoptRecommendedDeparture(timeStr) {
+  adoptedDepartureTime = timeStr;  // 変数に保存（最適化時に使用）
   const input = document.getElementById('depart-time');
   input.value = timeStr;
   // 採用したことを視覚的にフィードバック
