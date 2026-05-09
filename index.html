@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>送迎ルート最適化システム | 児童発達支援センター</title>
+  <style>
+    :root {
+      --primary:       #1a73e8;
+      --primary-dark:  #1557b0;
+      --primary-light: #e8f0fe;
+      --success:       #34a853;
+      --success-dark:  #2d8f47;
+      --warning:       #fbbc04;
+      --danger:        #ea4335;
+      --gray-50:  #f8f9fa;
+      --gray-100: #f1f3f4;
+      --gray-200: #e8eaed;
+      --gray-400: #bdc1c6;
+      --gray-600: #80868b;
+      --gray-800: #3c4043;
+      --radius: 10px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.08);
+      --shadow:    0 2px 8px rgba(0,0,0,.12), 0 1px 4px rgba(0,0,0,.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', sans-serif;
+      background: var(--gray-100);
+      color: var(--gray-800);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .app-header {
+      background: var(--primary);
+      color: #fff;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.2);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .app-header h1 { font-size: 18px; font-weight: 600; letter-spacing: .3px; }
+    .app-header .badge {
+      margin-left: auto;
+      font-size: 12px;
+      background: rgba(255,255,255,.2);
+      padding: 2px 10px;
+      border-radius: 12px;
+    }
+
+    /* ── Layout ── */
+    .main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 20px 16px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--gray-200);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-header h2 {
+      font-size: 15px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-header--clickable { cursor: pointer; user-select: none; }
+    .card-body { padding: 20px; }
+
+    /* ── Collapse ── */
+    .collapse-icon { transition: transform .25s; font-style: normal; }
+    .is-collapsed .collapse-icon { transform: rotate(-90deg); }
+    .collapsible-body {
+      overflow: hidden;
+      transition: max-height .3s ease, opacity .3s ease;
+      opacity: 1;
+    }
+    .is-collapsed .collapsible-body { opacity: 0; }
+
+    /* ── Form ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray-600);
+      letter-spacing: .3px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .label-note { font-weight: 400; font-size: 11px; color: var(--gray-400); }
+    input[type="text"], input[type="password"], input[type="date"],
+    input[type="time"], input[type="number"], select {
+      padding: 9px 12px;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 7px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--gray-800);
+      background: #fff;
+      transition: border-color .2s, box-shadow .2s;
+      width: 100%;
+    }
+    input[readonly] { background: var(--gray-50); color: var(--gray-600); cursor: default; }
+    input[readonly]:focus { border-color: var(--gray-200); box-shadow: none; }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(26,115,232,.15);
+    }
+
+    /* ── Sheet format table ── */
+    .sheet-spec {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      margin-top: 4px;
+    }
+    .sheet-spec th {
+      background: rgba(26,115,232,.08);
+      padding: 5px 10px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(26,115,232,.2);
+    }
+    .sheet-spec td {
+      padding: 4px 10px;
+      border-bottom: 1px solid rgba(26,115,232,.1);
+      color: #174ea6;
+    }
+    .sheet-spec tr:last-child td { border-bottom: none; }
+    .col-tag {
+      display: inline-block;
+      background: rgba(26,115,232,.15);
+      color: #174ea6;
+      font-weight: 700;
+      padding: 0 5px;
+      border-radius: 3px;
+      font-size: 11px;
+      margin-right: 4px;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border: none;
+      border-radius: 7px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .15s, transform .1s, box-shadow .15s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-dark); box-shadow: 0 2px 6px rgba(26,115,232,.4); }
+
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover:not(:disabled) { background: var(--success-dark); box-shadow: 0 2px 6px rgba(52,168,83,.4); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--primary);
+      border: 1.5px solid var(--primary);
+    }
+    .btn-ghost:hover:not(:disabled) { background: var(--primary-light); }
+
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+
+    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+
+    /* ── Spinner ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block;
+      width: 15px; height: 15px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* ── Alert ── */
+    .alert {
+      padding: 11px 16px;
+      border-radius: 7px;
+      font-size: 13.5px;
+      border-left: 4px solid;
+    }
+    .alert + .alert { margin-top: 8px; }
+    .alert-info    { background: var(--primary-light); border-color: var(--primary); color: #174ea6; }
+    .alert-success { background: #e6f4ea; border-color: var(--success); color: #137333; }
+    .alert-warning { background: #fef7e0; border-color: var(--warning); color: #7a4f00; }
+    .alert-error   { background: #fce8e6; border-color: var(--danger); color: #c5221f; }
+
+    /* ── Source badge (shown next to auto-filled fields) ── */
+    .source-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #e6f4ea;
+      color: var(--success);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 10px;
+    }
+
+    /* ── Toggle switch ── */
+    .toggle {
+      position: relative;
+      display: inline-block;
+      width: 42px; height: 23px;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0;
+      background: var(--gray-400);
+      border-radius: 23px;
+      cursor: pointer;
+      transition: background .25s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 17px; height: 17px;
+      left: 3px; bottom: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .25s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    }
+    .toggle input:checked + .toggle-slider { background: var(--success); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(19px); }
+
+    /* ── Children table ── */
+    .table-wrap { overflow-x: auto; }
+    table.children-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .children-tbl th {
+      background: var(--gray-50);
+      padding: 9px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gray-600);
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--gray-200);
+      white-space: nowrap;
+    }
+    .children-tbl td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--gray-200);
+      vertical-align: middle;
+    }
+    .children-tbl tbody tr:last-child td { border-bottom: none; }
+    .children-tbl tbody tr.row-absent td { opacity: .45; background: var(--gray-50); }
+    .children-tbl tbody tr:hover:not(.row-absent) { background: #fafafa; }
+    .name-cell  { font-weight: 600; }
+    .addr-cell  { font-size: 12.5px; color: var(--gray-600); max-width: 260px; }
+    .phone-cell { font-size: 13px; white-space: nowrap; }
+    .board-cell { font-size: 13px; white-space: nowrap; color: var(--gray-600); }
+
+    /* ── Map ── */
+    #map {
+      width: 100%;
+      height: 440px;
+      background: var(--gray-200);
+    }
+    .map-placeholder {
+      width: 100%;
+      height: 440px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--gray-50);
+      color: var(--gray-600);
+      font-size: 14px;
+      gap: 10px;
+    }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      display: flex;
+      gap: 0;
+      background: var(--gray-50);
+      border-top: 1px solid var(--gray-200);
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .stat-item {
+      flex: 1;
+      padding: 14px 16px;
+      text-align: center;
+      border-right: 1px solid var(--gray-200);
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-value { font-size: 20px; font-weight: 700; color: var(--primary); line-height: 1.2; }
+    .stat-value.over-time { color: var(--danger); }
+    .stat-label { font-size: 11px; color: var(--gray-600); margin-top: 2px; }
+
+    /* ── Route list ── */
+    .route-list { list-style: none; }
+    .route-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 0;
+    }
+    .stop-circle {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+      box-shadow: var(--shadow-sm);
+    }
+    .stop-circle.origin { background: var(--primary); color: #fff; }
+    .stop-circle.dest   { background: var(--primary-dark); color: #fff; }
+    .stop-circle.child  { background: var(--success); color: #fff; }
+
+    .stop-info { flex: 1; min-width: 0; }
+    .stop-name { font-weight: 600; font-size: 15px; }
+    .stop-sub  { font-size: 12px; color: var(--gray-600); margin-top: 2px; }
+
+    .stop-time { text-align: right; flex-shrink: 0; }
+    .time-eta  { font-size: 18px; font-weight: 700; color: var(--primary); line-height: 1.1; }
+    .time-label { font-size: 11px; color: var(--gray-600); margin-top: 1px; }
+
+    /* ── Toast ── */
+    #toast-container {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+    }
+    .toast {
+      padding: 10px 20px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #fff;
+      box-shadow: var(--shadow);
+      animation: toastIn .25s ease;
+      white-space: nowrap;
+    }
+    @keyframes toastIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: none; } }
+    .toast-success { background: var(--success); }
+    .toast-error   { background: var(--danger); }
+    .toast-info    { background: var(--primary); }
+    .toast-warning { background: #e65100; }
+
+    /* ── Stepper ── */
+    .stepper {
+      display: flex;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    .step-item {
+      flex: 1;
+      padding: 10px 4px;
+      text-align: center;
+      background: var(--gray-200);
+      color: var(--gray-600);
+      font-size: 10px;
+      font-weight: 700;
+      border-right: 1px solid rgba(0,0,0,.08);
+      transition: background .25s, color .25s;
+    }
+    .step-item:last-child { border-right: none; }
+    .step-num {
+      display: block;
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 1px;
+    }
+    .step-item.step-active { background: var(--primary); color: #fff; }
+    .step-item.step-done   { background: var(--success);  color: #fff; }
+
+    /* ── Step cards ── */
+    .step-badge {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px 14px;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .step-title { font-size: 15px; font-weight: 700; color: var(--gray-800); flex: 1; }
+    .step-body  { padding: 20px; }
+    .step-sep   { border: none; border-top: 2px solid var(--gray-100); }
+
+    /* ── Large controls ── */
+    .input-lg {
+      padding: 13px 14px !important;
+      font-size: 16px !important;
+      border-radius: 10px !important;
+    }
+    .btn-lg {
+      padding: 14px 20px;
+      font-size: 16px;
+      border-radius: 10px;
+      justify-content: center;
+    }
+    .btn-full { width: 100%; }
+
+    /* 出席テーブル：住所・曜日・乗車時間列を非表示にしてシンプル化 */
+    .children-tbl .addr-cell,
+    .children-tbl .phone-cell,
+    .children-tbl .board-cell,
+    .children-tbl thead th:nth-child(3),
+    .children-tbl thead th:nth-child(4),
+    .children-tbl thead th:nth-child(5) { display: none; }
+
+    @media (max-width: 640px) {
+      .step-item { padding: 8px 2px; font-size: 9px; }
+      .step-num  { font-size: 17px; }
+      .step-title { font-size: 13px; }
+      .btn-lg { font-size: 15px; padding: 13px 16px; }
+    }
+
+    /* ── Print ── */
+    .print-only { display: none; }
+
+    @page { size: A4 portrait; margin: 10mm; }
+
+    @media print {
+      /* ── 空白ページ防止：html/body の余分な高さを除去 ── */
+      html, body {
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        background: #fff !important;
+        font-size: 11pt;
+        color: #111;
+      }
+
+      /* 不要な要素を親から構造ごと消す（子要素の残留高さを防ぐ） */
+      body > *:not(main),
+      main > *:not(#card-result) { display: none !important; }
+
+      /* 個別要素の確実な非表示 */
+      .no-print, .app-header,
+      #card-step1, #card-children, #stepper,
+      .card-header,
+      #opt-log, #geocode-log,
+      #map-placeholder, #stats-bar, #route-body,
+      #arrival-alert, #toast-container { display: none !important; }
+
+      /* Google Maps UIコントロールを非表示 */
+      #map .gmnoprint,
+      #map .gm-style-cc,
+      #map .gm-bundled-control,
+      #map .gm-style button,
+      #map .gm-style-iw-container { display: none !important; }
+
+      /* 印刷専用セクションを表示 */
+      .print-only { display: block !important; }
+
+      main {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: none !important;
+      }
+      .card {
+        box-shadow: none !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      /* A4の使用可能高さ（297mm - 上下余白10mm×2）で1ページに収める */
+      #card-result {
+        display: flex !important;
+        flex-direction: column !important;
+        height: 277mm;
+        overflow: hidden !important;
+        page-break-before: avoid !important;
+        page-break-after:  avoid !important;
+        page-break-inside: avoid !important;
+        break-before: avoid !important;
+        break-after:  avoid !important;
+        break-inside: avoid !important;
+        transform-origin: top left; /* JS が停車数に応じて scale() を設定 */
+      }
+
+      /* テーブル部：自然な高さ */
+      #print-section {
+        order: 1;
+        flex: 0 0 auto;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      /* 地図部：残り高さをすべて埋める（停車数に応じて自動調整） */
+      #map-container {
+        order: 2;
+        flex: 1 1 auto;
+        min-height: 40mm;
+        display: flex !important;
+        flex-direction: column;
+        overflow: hidden;
+        margin-top: 10px;
+      }
+      #map-container::before {
+        content: 'ルートマップ';
+        flex: 0 0 auto;
+        display: block;
+        font-size: 10.5pt;
+        font-weight: bold;
+        border-top: 1px solid #999;
+        padding-top: 7px;
+        margin-bottom: 5px;
+      }
+      #map {
+        flex: 1 1 auto;
+        min-height: 0;
+        width: 100% !important;
+        height: auto !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      /* 印刷テーブル */
+      #print-section table { width: 100%; border-collapse: collapse; font-size: 10.5pt; }
+      #print-section th,
+      #print-section td { border: 1px solid #888; padding: 5px 7px; vertical-align: top; }
+      #print-section th {
+        background: #e8e8e8 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      #print-section .print-stats {
+        background: #f5f5f5 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .app-header h1 { font-size: 15px; }
+      .stats-bar { flex-wrap: wrap; }
+      .stat-item { min-width: 50%; border-right: 1px solid var(--gray-200); }
+      .form-grid { grid-template-columns: 1fr; }
+      .route-item { gap: 10px; }
+      .time-eta { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<header class="app-header no-print">
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+  </svg>
+  <h1>送迎ルート最適化システム</h1>
+  <span class="badge" id="today-badge"></span>
+</header>
+
+<div id="toast-container"></div>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<main class="main">
+
+  <!-- ステップインジケーター -->
+  <div class="stepper no-print" id="stepper">
+    <div class="step-item step-active" id="si-1"><span class="step-num">1</span>送迎日選択</div>
+    <div class="step-item"            id="si-2"><span class="step-num">2</span>出席確認</div>
+    <div class="step-item"            id="si-3"><span class="step-num">3</span>ルート最適化</div>
+    <div class="step-item"            id="si-4"><span class="step-num">4</span>結果・印刷</div>
+  </div>
+
+  <!-- STEP 1: 送迎日・種別 -->
+  <div class="card no-print" id="card-step1">
+    <div class="step-header">
+      <div class="step-badge">1</div>
+      <div class="step-title">送迎日と種別を選択</div>
+      <span id="sheet-load-status" style="font-size:12px;color:var(--gray-600);"></span>
+    </div>
+    <div class="step-body">
+      <div class="form-grid" style="margin-bottom:16px;">
+        <div class="form-group">
+          <label>送迎日</label>
+          <input type="date" id="route-date" class="input-lg" onchange="applyDayFilter()">
+        </div>
+        <div class="form-group">
+          <label>種別</label>
+          <select id="route-type" class="input-lg">
+            <option value="pickup">🌅 朝の送迎（お迎え → センター）</option>
+            <option value="dropoff">🌇 夕の送迎（センター → 自宅）</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-lg btn-full" id="load-btn" onclick="loadSheets()">
+        📊 スプレッドシートを読み込む
+      </button>
+    </div>
+  </div>
+
+  <!-- STEP 2 + 3: 出席確認・最適化（読み込み後に表示） -->
+  <div class="card no-print" id="card-children" style="display:none;">
+
+    <!-- STEP 2 ヘッダー -->
+    <div class="step-header">
+      <div class="step-badge">2</div>
+      <div class="step-title">出席確認</div>
+      <span id="att-summary" style="font-size:13px;color:var(--gray-600);"></span>
+    </div>
+    <div class="step-body" style="padding-bottom:12px;">
+      <div id="day-filter-note" style="font-size:13px;color:var(--primary);margin-bottom:12px;font-weight:500;min-height:1em;"></div>
+      <div class="table-wrap">
+        <table class="children-tbl">
+          <thead>
+            <tr>
+              <th>NO</th>
+              <th>名前</th>
+              <th>自宅住所</th>
+              <th>出席曜日</th>
+              <th>乗車時間</th>
+              <th>出席</th>
+            </tr>
+          </thead>
+          <tbody id="children-tbody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="toggleAllAttendance(true)">全員出席</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleAllAttendance(false)">全員欠席</button>
+      </div>
+    </div>
+
+    <hr class="step-sep">
+
+    <!-- STEP 3 ヘッダー -->
+    <div class="step-header">
+      <div class="step-badge" style="background:var(--success);">3</div>
+      <div class="step-title">推奨出発時刻・ルート最適化</div>
+    </div>
+    <div class="step-body">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+        <button class="btn btn-ghost btn-sm" id="recommend-btn" onclick="calcRecommendedDeparture()">
+          ⏱ 推奨出発時刻を計算
+        </button>
+        <span style="font-size:12px;color:var(--gray-600);display:flex;align-items:center;gap:4px;">
+          余裕
+          <input type="number" id="recommend-buffer" value="5" min="0" max="30"
+                 style="width:44px;padding:2px 6px;font-size:13px;border:1px solid var(--gray-300);border-radius:4px;text-align:center;">
+          分
+        </span>
+      </div>
+      <div id="depart-recommend" style="margin-bottom:12px;"></div>
+      <div class="form-grid" style="margin-bottom:16px;">
+        <div class="form-group">
+          <label>出発時刻<span class="label-note" id="depart-time-note" style="margin-left:6px;"></span></label>
+          <input type="time" id="depart-time" value="08:30" class="input-lg">
+        </div>
+      </div>
+      <button class="btn btn-success btn-lg btn-full" id="opt-btn" onclick="optimizeRoute()">
+        🗺️ ルートを最適化する
+      </button>
+    </div>
+  </div>
+
+  <!-- STEP 4: 結果カード -->
+  <div class="card" id="card-result" style="display:none;">
+    <div class="card-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="step-badge" style="background:var(--success);">4</div>
+        <h2 style="font-size:15px;font-weight:700;margin:0;">最適化ルート</h2>
+      </div>
+    </div>
+
+    <!-- 計算中スピナー（処理中のみ表示） -->
+    <div id="calc-progress" style="display:none;padding:24px 20px;text-align:center;">
+      <div style="display:inline-flex;align-items:center;gap:12px;color:var(--primary);font-size:15px;font-weight:600;">
+        <span class="spinner" style="border-color:rgba(26,115,232,.3);border-top-color:var(--primary);width:20px;height:20px;"></span>
+        ルートを計算中…
+      </div>
+    </div>
+
+    <!-- ログ（非表示・console.logのみ） -->
+    <div id="opt-log"     style="display:none;" aria-hidden="true"></div>
+    <div id="geocode-log" style="display:none;" aria-hidden="true">
+      <div id="geocode-rows"></div>
+    </div>
+
+    <div id="map-container">
+      <div class="map-placeholder" id="map-placeholder">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="var(--gray-400)">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+        </svg>
+        <span>ルートを最適化するとここに地図が表示されます</span>
+      </div>
+      <div id="map" style="display:none;"></div>
+    </div>
+
+    <div class="stats-bar" id="stats-bar" style="display:none;"></div>
+
+    <div class="card-body" id="route-body" style="display:none;">
+      <div id="arrival-alert" style="margin-bottom:16px;"></div>
+      <ul class="route-list" id="route-list"></ul>
+
+      <!-- 印刷ボタン（ルート一覧の直下） -->
+      <div class="no-print" style="margin-top:24px;padding-top:20px;border-top:2px solid var(--gray-200);text-align:center;">
+        <button id="print-btn" onclick="window.print()"
+                style="display:none;padding:14px 36px;font-size:16px;font-weight:700;
+                       background:#f57c00;color:#fff;border:none;border-radius:12px;
+                       cursor:pointer;transition:background .15s,transform .1s,box-shadow .15s;
+                       box-shadow:0 2px 8px rgba(245,124,0,.35);">
+          🖨️ 印刷・PDF保存
+        </button>
+      </div>
+    </div>
+
+    <div id="print-section" class="print-only"></div>
+  </div>
+
+  <!-- 技術設定（JS参照用・非表示） -->
+  <div style="display:none;" aria-hidden="true">
+    <input type="text"     id="maps-key">
+    <input type="text"     id="sheets-key">
+    <input type="text"     id="sheet-id">
+    <input type="text"     id="sheet-kid"  value="子ども情報シート">
+    <input type="text"     id="sheet-biz"  value="事業所情報シート">
+    <input type="text"     id="sheet-att"  value="当日出欠シート">
+    <input type="text"     id="center-addr">
+    <input type="time"     id="arrival-time" value="09:50">
+    <input type="number"   id="stop-min"    value="3" min="0" max="15">
+    <input type="text"     id="test-origin" value="福岡県田川郡福智町赤池240-4">
+    <input type="text"     id="test-dest"   value="福岡県飯塚市新飯塚">
+  </div>
+
+</main>
+
+<!-- ═══════════════ SCRIPT ═══════════════ -->
+<script>
+// ─────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────
+let children  = [];   // { id, name, address, days, boardMin, arrivalHope, present, latlng }
+let mapsReady = false;
+let gMap      = null;
+let gRenderer = null;
+let gMarkers  = [];   // カスタムマーカー（クリア用）
+
+const SETTING_KEYS = ['maps-key','sheets-key','sheet-id','sheet-kid','sheet-biz','sheet-att','center-addr'];
+
+// デフォルト値（起動時に自動入力。入力欄で上書き可能）
+const DEFAULTS = {
+  'maps-key':   'AIzaSyAHFTVauXFrLD-NkWO2FHAqQp6kRtPA0ok',
+  'sheets-key': 'AIzaSyAHFTVauXFrLD-NkWO2FHAqQp6kRtPA0ok',
+  'sheet-id':   '1OIe3DPnCZ2axJti_UAYkt4b_VURrtkvjLfxzzIV7KpI',
+};
+
+const storage = {};  // localStorage の代替（data: URL 環境対応）
+
+// ─────────────────────────────────────────
+//  ステップインジケーター
+// ─────────────────────────────────────────
+function setStep(n) {
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById(`si-${i}`);
+    if (!el) continue;
+    el.classList.remove('step-active', 'step-done');
+    if (i < n)      el.classList.add('step-done');
+    else if (i === n) el.classList.add('step-active');
+  }
+}
+
+// ─────────────────────────────────────────
+//  Init
+// ─────────────────────────────────────────
+(function init() {
+  const d = new Date();
+  document.getElementById('today-badge').textContent =
+    d.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
+  document.getElementById('route-date').value = d.toISOString().slice(0, 10);
+
+  SETTING_KEYS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // storage に値があればそちらを優先、なければデフォルト値を使用
+    el.value = storage[id] || DEFAULTS[id] || '';
+  });
+
+  document.querySelectorAll('.collapsible-body').forEach(el => {
+    el.style.maxHeight = el.scrollHeight + 'px';
+  });
+})();
+
+// ─────────────────────────────────────────
+//  Collapsible
+// ─────────────────────────────────────────
+function toggleCard(name) {
+  const card = document.getElementById('card-' + name);
+  const body = document.getElementById('body-' + name);
+  if (!body) return;
+  const closing = !card.classList.contains('is-collapsed');
+  card.classList.toggle('is-collapsed', closing);
+  body.style.maxHeight = closing ? '0' : body.scrollHeight + 'px';
+}
+
+// ─────────────────────────────────────────
+//  Toast
+// ─────────────────────────────────────────
+function toast(msg, type = 'info', dur = 3500) {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), dur);
+}
+
+// ─────────────────────────────────────────
+//  Button loading state
+// ─────────────────────────────────────────
+function setLoading(id, loading, label) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.innerHTML = loading ? `<span class="spinner"></span>${label}` : label;
+}
+
+// ─────────────────────────────────────────
+//  Settings persistence
+// ─────────────────────────────────────────
+function saveSettings() {
+  SETTING_KEYS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el?.value.trim()) storage[id] = el.value.trim();
+  });
+  toast('設定を保存しました', 'success');
+}
+
+function clearSettings() {
+  SETTING_KEYS.forEach(id => {
+    delete storage[id];
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  toast('設定をクリアしました', 'info');
+}
+
+// ─────────────────────────────────────────
+//  Google Maps dynamic loader
+// ─────────────────────────────────────────
+function loadMapsAPI(apiKey) {
+  return new Promise((resolve, reject) => {
+    if (mapsReady && window.google?.maps) { resolve(); return; }
+    document.querySelectorAll('script[data-gmaps]').forEach(s => s.remove());
+    window.__mapsInitCb = () => { mapsReady = true; resolve(); };
+    const s = document.createElement('script');
+    s.setAttribute('data-gmaps', '');
+    s.async = true;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&callback=__mapsInitCb&language=ja&region=JP`;
+    s.onerror = () => reject(new Error('Google Maps APIの読み込みに失敗しました。Maps APIキーを確認してください。'));
+    document.head.appendChild(s);
+  });
+}
+
+function ensureMap() {
+  if (gMap) return;
+  const el = document.getElementById('map');
+  el.style.display = '';
+  document.getElementById('map-placeholder').style.display = 'none';
+  gMap = new google.maps.Map(el, {
+    center: { lat: 35.6762, lng: 139.6503 },
+    zoom: 11,
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: true,
+  });
+  gRenderer = new google.maps.DirectionsRenderer({ map: gMap, suppressMarkers: true });
+}
+
+// ─────────────────────────────────────────
+//  カスタムマーカー（発/着 + ①②③ 番号）
+// ─────────────────────────────────────────
+
+// ①②③…⑳ の Unicode 丸数字（ルートリスト用）
+const CIRCLED_NUMS = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩',
+                      '⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
+
+// google.maps.SymbolPath.CIRCLE + label で確実に番号を表示するアイコン
+function makeCircleIcon(color, scale = 16) {
+  return {
+    path:        google.maps.SymbolPath.CIRCLE,
+    fillColor:   color,
+    fillOpacity: 1,
+    strokeColor: '#ffffff',
+    strokeWeight: 2,
+    scale:       scale,
+  };
+}
+
+function clearCustomMarkers() {
+  gMarkers.forEach(m => m.setMap(null));
+  gMarkers = [];
+}
+
+// ordered: 実際の訪問順グループ配列, legs: DirectionsResult の legs
+function addVisitOrderMarkers(ordered, legs) {
+  clearCustomMarkers();
+
+  // ── 発マーカー（緑）────────────────────────
+  gMarkers.push(new google.maps.Marker({
+    position: legs[0].start_location,
+    map:      gMap,
+    icon:     makeCircleIcon('#34a853', 18),
+    label:    { text: '発', color: '#ffffff', fontWeight: 'bold', fontSize: '14px' },
+    title:    '出発地（事業所）',
+    zIndex:   300,
+  }));
+
+  // ── 経由地マーカー（青・番号 1,2,3…）────────
+  ordered.forEach((group, i) => {
+    gMarkers.push(new google.maps.Marker({
+      position: legs[i].end_location,
+      map:      gMap,
+      icon:     makeCircleIcon('#1a73e8', 16),
+      label:    { text: String(i + 1), color: '#ffffff', fontWeight: 'bold', fontSize: '14px' },
+      title:    `${i + 1}: ${group.stopName || group.children.map(c => c.name).join('・')}`,
+      zIndex:   100 + i,
+    }));
+  });
+}
+
+// ─────────────────────────────────────────
+//  Attendance helper
+// ─────────────────────────────────────────
+function parseAttendance(val) {
+  if (!val || val.trim() === '') return true;
+  const v = val.trim();
+  const absent = ['×','✕','✗','✘','欠席','欠','なし','absent','no','0','false','ng','休'];
+  return !absent.some(t => v.toLowerCase() === t.toLowerCase());
+}
+
+// ─────────────────────────────────────────
+//  Sheets API fetch helper
+// ─────────────────────────────────────────
+async function fetchSheet(apiKey, sheetId, sheetName, rangeSpec) {
+  const range = `${sheetName}!${rangeSpec}`;
+  const url   = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${apiKey}`;
+  const res   = await fetch(url);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`「${sheetName}」の読み込みエラー: ${err.error?.message || `HTTP ${res.status}`}`);
+  }
+  return (await res.json()).values || [];
+}
+
+// ─────────────────────────────────────────
+//  Sheet parsers
+// ─────────────────────────────────────────
+
+// 事業所情報シート: 固定行インデックスで読み込み
+// 行1(index 0): タイトル行（スキップ）
+// 行2(index 1): ヘッダー行（スキップ）
+// 行3(index 2): 事業所名      → B3
+// 行4(index 3): 事業所住所    → B4
+// 行5(index 4): 出発時刻      → B5
+// 行6(index 5): 到着希望時刻  → B6
+// 行7(index 6): 車両台数      → B7
+// 行8(index 7): 最大乗車人数  → B8
+function parseBizSheet(rows) {
+  const cell = (rowIdx) => (rows[rowIdx]?.[1] || '').trim();
+  const parseTime = (val) => {
+    const m = val.match(/(\d{1,2}):(\d{2})/);
+    return m ? m[1].padStart(2,'0') + ':' + m[2] : '';
+  };
+  return {
+    bizName:       cell(2),
+    centerAddress: cell(3),
+    departTime:    parseTime(cell(4)),
+    arrivalTime:   parseTime(cell(5)),
+    vehicleCount:  parseInt(cell(6)) || null,
+    maxCapacity:   parseInt(cell(7)) || null,
+  };
+}
+
+// 子ども情報シート: A=NO, B=名前, C=自宅住所, D=出席曜日, E=乗車時間(分), F=到着希望時間
+function parseKidSheet(rows) {
+  return rows
+    .filter(r => r[1]?.trim())          // B列（名前）が必須
+    .map((r, i) => ({
+      id:          parseInt(r[0]) || (i + 1),  // A列: NO
+      name:        (r[1] || '').trim(),          // B列: 名前
+      address:     (r[2] || '').trim(),          // C列: 自宅住所
+      days:        (r[3] || '').trim(),          // D列: 出席曜日
+      boardMin:    r[4] ? (parseInt(r[4]) || null) : null,  // E列: 乗車時間(分)
+      arrivalHope: (r[5] || '').trim(),          // F列: 到着希望時間
+      stopTime:    (r[6] || '').trim(),          // G列: 指定到着時刻
+      stopName:    (r[7] || '').trim(),          // H列: 停車地名
+      present:     true,
+      latlng:      null,  // geocodeGroupsで設定
+    }));
+}
+
+// 当日出欠シート: A=名前, B=出欠 → Map<名前, boolean>
+function parseAttSheet(rows) {
+  const map = new Map();
+  rows.filter(r => r[0]?.trim()).forEach(r => {
+    map.set(r[0].trim(), parseAttendance(r[1] || ''));
+  });
+  return map;
+}
+
+// ─────────────────────────────────────────
+//  Main: load all 3 sheets in order
+// ─────────────────────────────────────────
+async function loadSheets() {
+  const mapsKey   = document.getElementById('maps-key').value.trim();
+  const sheetsKey = document.getElementById('sheets-key').value.trim();
+  const sheetId   = document.getElementById('sheet-id').value.trim();
+  const kidSheet  = document.getElementById('sheet-kid').value.trim() || '子ども情報シート';
+  const bizSheet  = document.getElementById('sheet-biz').value.trim() || '事業所情報シート';
+  const attSheet  = document.getElementById('sheet-att').value.trim() || '当日出欠シート';
+
+  if (!mapsKey)   { toast('Google Maps APIキーを入力してください', 'error'); return; }
+  if (!sheetsKey) { toast('Google Sheets APIキーを入力してください', 'error'); return; }
+  if (!sheetId)   { toast('スプレッドシートIDを入力してください', 'error'); return; }
+
+  setLoading('load-btn', true, '読み込み中…');
+  document.getElementById('sheet-load-status').textContent = '';
+
+  try {
+    // ── STEP 1: 事業所情報シート ──────────────────
+    document.getElementById('sheet-load-status').textContent = '① 事業所情報を取得中…';
+    const bizRows = await fetchSheet(sheetsKey, sheetId, bizSheet, 'A1:B8');
+    const bizInfo = parseBizSheet(bizRows);
+
+    // 事業所情報シートの値をフォームに反映
+    if (bizInfo.centerAddress) {
+      document.getElementById('center-addr').value = bizInfo.centerAddress;
+    }
+    if (bizInfo.departTime) {
+      document.getElementById('depart-time').value = bizInfo.departTime;
+      document.getElementById('depart-time-note').textContent = `✔ ${bizSheet}より自動入力`;
+    }
+    if (bizInfo.arrivalTime) {
+      document.getElementById('arrival-time').value = bizInfo.arrivalTime;
+    }
+
+    // ── STEP 2: 子ども情報シート ──────────────────
+    document.getElementById('sheet-load-status').textContent = '② 子ども情報を取得中…';
+    const kidRows = await fetchSheet(sheetsKey, sheetId, kidSheet, 'A2:H');
+    children = parseKidSheet(kidRows);
+
+    if (!children.length)
+      throw new Error(`「${kidSheet}」に有効なデータがありません。B列に名前・C列に自宅住所が必要です。`);
+
+    // ── STEP 3: 当日出欠シート ──────────────────
+    document.getElementById('sheet-load-status').textContent = '③ 当日出欠を取得中…';
+    const attRows = await fetchSheet(sheetsKey, sheetId, attSheet, 'A2:B');
+    const attMap  = parseAttSheet(attRows);
+
+    // 子ども情報と出欠をマージ：A列がNO（数字）なら番号照合、名前なら名前照合
+    let matched = 0;
+    children.forEach(c => {
+      const noKey = String(c.id);          // NOで照合
+      if (attMap.has(noKey)) {
+        c.present = attMap.get(noKey);
+        matched++;
+      } else if (attMap.has(c.name)) {    // フォールバック：名前照合
+        c.present = attMap.get(c.name);
+        matched++;
+      }
+      // 出欠シートにない子はデフォルト出席のまま
+    });
+
+    // ── Maps API 読み込み（並行） ──────────────────
+    await loadMapsAPI(mapsKey);
+
+    // ── 結果表示 ──────────────────────────────────
+    renderTable();
+    document.getElementById('card-children').style.display = '';
+
+    // ── 曜日フィルター（renderTable後に実行してDOMに反映）──
+    // 出欠シートで明示的に設定された子はそのまま維持し、
+    // 未記載の子のみ通常出席曜日で判定する
+    applyDayFilter();
+
+    const presentCnt   = children.filter(c => c.present).length;
+    const unmatchedCnt = children.length - matched;
+
+    let statusParts = [`出席 ${presentCnt}名 / 全${children.length}名`];
+    if (bizInfo.vehicleCount) statusParts.push(`車両 ${bizInfo.vehicleCount}台`);
+    if (bizInfo.maxCapacity)  statusParts.push(`最大 ${bizInfo.maxCapacity}名`);
+    document.getElementById('sheet-load-status').textContent =
+      `読み込み完了 — ${statusParts.join('　')}`;
+
+    toast(`${children.length}名を読み込みました（出席 ${presentCnt}名）`, 'success');
+    if (unmatchedCnt > 0)
+      toast(`${unmatchedCnt}名は出欠シートに未記載のため出席扱いにしました`, 'warning', 5000);
+    if (bizInfo.maxCapacity && presentCnt > bizInfo.maxCapacity)
+      toast(`⚠ 出席者数(${presentCnt}名)が最大乗車人数(${bizInfo.maxCapacity}名)を超えています`, 'warning', 7000);
+
+    setStep(2);
+
+  } catch (e) {
+    toast(`読み込みエラー: ${e.message}`, 'error', 7000);
+    document.getElementById('sheet-load-status').textContent = '';
+    console.error(e);
+  } finally {
+    setLoading('load-btn', false, '📊 スプレッドシートを読み込む');
+  }
+}
+
+// ─────────────────────────────────────────
+//  Render children table
+// ─────────────────────────────────────────
+function renderTable() {
+  const tbody   = document.getElementById('children-tbody');
+  const stopMin = parseInt(document.getElementById('stop-min').value) || 3;
+  tbody.innerHTML = '';
+
+  children.forEach((c, idx) => {
+    const tr = document.createElement('tr');
+    if (!c.present) tr.classList.add('row-absent');
+    tr.dataset.id = c.id;
+
+    const boardLabel = c.boardMin != null
+      ? `${c.boardMin}分`
+      : `${stopMin}分 <span style="font-size:11px;color:var(--gray-400);">(既定)</span>`;
+
+    tr.innerHTML = `
+      <td style="color:var(--gray-600);font-size:12px;">${c.id}</td>
+      <td class="name-cell">${esc(c.name)}</td>
+      <td class="addr-cell">${esc(c.address)}</td>
+      <td class="phone-cell">${c.days ? esc(c.days) : '—'}</td>
+      <td class="board-cell">🕐 ${boardLabel}</td>
+      <td>
+        <label class="toggle" title="${c.present ? '出席' : '欠席'}">
+          <input type="checkbox" ${c.present ? 'checked' : ''}
+            onchange="setAttendance(${c.id}, this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  updateAttSummary();
+}
+
+function setAttendance(id, present) {
+  const c = children.find(x => x.id === id);
+  if (!c) return;
+  c.present = present;
+  const tr = document.querySelector(`#children-tbody tr[data-id="${id}"]`);
+  if (tr) {
+    tr.classList.toggle('row-absent', !present);
+    const cb = tr.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = present;
+  }
+  updateAttSummary();
+}
+
+function toggleAllAttendance(val) {
+  children.forEach(c => setAttendance(c.id, val));
+  document.querySelectorAll('#children-tbody input[type=checkbox]').forEach(cb => cb.checked = val);
+}
+
+function updateAttSummary() {
+  const pres = children.filter(c => c.present).length;
+  document.getElementById('att-summary').textContent = `出席 ${pres} / 全${children.length}名`;
+}
+
+// ─────────────────────────────────────────
+//  曜日フィルター
+// ─────────────────────────────────────────
+const DOW_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
+
+// 日付文字列（YYYY-MM-DD）から曜日名を返す
+function getDayName(dateStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return DOW_NAMES[new Date(y, m - 1, d).getDay()];
+}
+
+// 「月・火・水・木・金」形式の文字列に指定曜日が含まれるか判定
+// days が空の場合は常にtrueを返す（曜日未設定 → 毎日出席扱い）
+function isDayMatch(daysStr, dayName) {
+  if (!daysStr || !daysStr.trim() || !dayName) return true;
+  const parts = daysStr.split(/[・,、\s\/]+/).map(s => s.trim()).filter(Boolean);
+  return parts.length === 0 || parts.includes(dayName);
+}
+
+// 送迎日の曜日に基づいて出席を自動設定する
+// days未設定の子は変更しない（欠席にしない）
+function applyDayFilter() {
+  if (!children.length) return;
+
+  const dateStr = document.getElementById('route-date').value;
+  const dayName = getDayName(dateStr);
+  const noteEl  = document.getElementById('day-filter-note');
+
+  if (!dayName) {
+    if (noteEl) noteEl.textContent = '';
+    return;
+  }
+
+  let filtered = 0;
+  children.forEach(c => {
+    if (!c.days) return;  // 曜日情報なし → 変更しない
+    const attend = isDayMatch(c.days, dayName);
+    // setAttendance でデータモデルと DOM（チェックボックス・行スタイル）を同時更新
+    setAttendance(c.id, attend);
+    if (!attend) filtered++;
+  });
+
+  const presentCnt = children.filter(c => c.present).length;
+  if (noteEl) {
+    noteEl.textContent =
+      `📅 ${dayName}曜日 ／ 通常出席 ${presentCnt}名` +
+      (filtered ? `（${filtered}名を自動OFF）` : '');
+  }
+  if (filtered) toast(`${dayName}曜日：${filtered}名を自動欠席にしました`, 'info', 4000);
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─────────────────────────────────────────
+//  住所グループ化（同住所の子をまとめる）
+// ─────────────────────────────────────────
+function buildAddressGroups(present) {
+  // NFKC正規化 + 全角スペース・改行・タブ・半角スペースを全て除去して比較
+  const normalize = s => s.normalize('NFKC').replace(/[\s　 \r\n\t]/g, '');
+  const groups = [];
+  present.forEach(c => {
+    const normAddr = normalize(c.address);
+    const existing = groups.find(g => normalize(g.address) === normAddr);
+    if (existing) {
+      existing.children.push(c);
+    } else {
+      groups.push({ address: c.address.trim(), stopName: c.stopName || '', children: [c] });
+    }
+  });
+
+  // 同住所グループの指定到着時刻：HH:MM に正規化し最も早い値を採用
+  // NFKC正規化で全角数字・全角コロン「：」を半角に変換してからマッチ
+  const normTime = t => {
+    const s = (t || '').normalize('NFKC').trim();
+    const m = s.match(/^(\d{1,2}):(\d{2})/);
+    return m ? m[1].padStart(2, '0') + ':' + m[2] : null;
+  };
+  groups.forEach(g => {
+    const times = g.children.map(c => normTime(c.stopTime)).filter(Boolean);
+    g.stopTime = times.length ? times.sort()[0] : null;  // 最も早い時刻
+  });
+
+  return groups;
+}
+
+// ─────────────────────────────────────────
+//  Geocoding（Maps JS SDK の Geocoder を使用）
+//  fetch は一切使わない → CORS・認証エラー回避
+// ─────────────────────────────────────────
+
+// 住所の前処理：郵便番号除去・全角→半角変換・トリム
+function normalizeAddressForGeocode(raw) {
+  let s = raw;
+  // 〒XXX-XXXX または 〒XXXXXXX の郵便番号部分を除去（直後のスペースも含む）
+  s = s.replace(/〒[\d０-９]{3}[-－‐ー]?[\d０-９]{4}\s*/g, '');
+  // 全角数字 → 半角数字
+  s = s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  // 全角ハイフン・長音符 → 半角ハイフン
+  s = s.replace(/[－‐ー−]/g, '-');
+  // 前後の空白・全角スペースをトリム
+  s = s.replace(/^[\s　]+|[\s　]+$/g, '');
+  return s;
+}
+
+// google.maps.Geocoder で住所 → LatLng を取得
+// 戻り値: google.maps.LatLng オブジェクト
+function geocodeAddress(address) {
+  return new Promise((resolve, reject) => {
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({ address, region: 'JP' }, (results, status) => {
+      if (status === 'OK' && results.length > 0) {
+        resolve(results[0].geometry.location);  // google.maps.LatLng
+      } else {
+        const err = new Error(status);
+        err.geocodeStatus = status;
+        reject(err);
+      }
+    });
+  });
+}
+
+// groupsの各addressを LatLng に変換して g.latlng にセット
+// centerAddr も変換して返す（google.maps.LatLng）
+async function geocodeGroups(groups, centerAddr) {
+  const rows  = document.getElementById('geocode-rows');
+  const panel = document.getElementById('geocode-log');
+  if (rows)  rows.innerHTML = '';
+  // panel は常に非表示（display:none 維持）
+
+  const addRow = (rawAddr, normalizedAddr, latlng, errMsg) => {
+    if (!rows) return;
+    const div = document.createElement('div');
+    const changed = rawAddr !== normalizedAddr;
+    if (latlng) {
+      div.style.color = 'var(--success)';
+      div.textContent = `✓ ${normalizedAddr}` +
+        (changed ? `  ←【変換前】${rawAddr}` : '') +
+        `  →  (${latlng.lat().toFixed(5)}, ${latlng.lng().toFixed(5)})`;
+    } else {
+      div.style.color = 'var(--danger)';
+      div.textContent = `✗ ${normalizedAddr}` +
+        (changed ? `  ←【変換前】${rawAddr}` : '') +
+        `  →  エラー: ${errMsg}`;
+    }
+    rows.appendChild(div);
+  };
+
+  // センター住所
+  let centerLatLng = null;
+  const normCenter = normalizeAddressForGeocode(centerAddr);
+  try {
+    centerLatLng = await geocodeAddress(normCenter);
+    addRow(centerAddr + '【センター】', normCenter + '【センター】', centerLatLng, null);
+    console.log('[Geocode] センター:', normCenter, '->', centerLatLng.toString());
+  } catch (e) {
+    addRow(centerAddr + '【センター】', normCenter + '【センター】', null, e.message);
+    console.warn('[Geocode] センター失敗:', normCenter, e.message);
+  }
+
+  // 各経由地住所（Geocoder はレート制限があるため少し間隔を空ける）
+  for (const g of groups) {
+    await new Promise(r => setTimeout(r, 120));
+    const normAddr = normalizeAddressForGeocode(g.address);
+    const names    = g.children.map(c => c.name).join('・');
+    try {
+      g.latlng     = await geocodeAddress(normAddr);
+      g.normAddress = normAddr;  // 変換後住所を保存
+      addRow(`${g.address}（${names}）`, `${normAddr}（${names}）`, g.latlng, null);
+      console.log(`[Geocode] ${normAddr}:`, g.latlng.toString());
+    } catch (e) {
+      g.latlng      = null;
+      g.normAddress = normAddr;
+      addRow(`${g.address}（${names}）`, `${normAddr}（${names}）`, null, e.message);
+      console.warn(`[Geocode] ${normAddr} 失敗:`, e.message);
+    }
+  }
+
+  return centerLatLng;  // google.maps.LatLng or null
+}
+
+// ─────────────────────────────────────────
+//  Optimization log (画面 + コンソール)
+// ─────────────────────────────────────────
+function optLog(msg, type = 'info') {
+  // 画面には表示せず console のみに記録
+  console.log(`[RouteOpt][${type.toUpperCase()}] ${msg}`);
+}
+
+function clearOptLog() {
+  const panel = document.getElementById('opt-log');
+  if (panel) panel.innerHTML = '';
+  // パネルは非表示のまま（display:none を維持）
+}
+
+// ─────────────────────────────────────────
+//  Directions API ラッパー（ステータス保持）
+// ─────────────────────────────────────────
+function callDirections(svc, request) {
+  return new Promise((resolve, reject) => {
+    svc.route(request, (res, status) => {
+      optLog(`Directions API レスポンス: ${status}`, status === 'OK' ? 'ok' : 'error');
+      console.log('[Directions API] raw response:', res);
+      if (status === 'OK') {
+        resolve(res);
+      } else {
+        const err = new Error(dirError(status));
+        err.apiStatus = status;
+        reject(err);
+      }
+    });
+  });
+}
+
+// ─────────────────────────────────────────
+//  Route optimization
+// ─────────────────────────────────────────
+async function optimizeRoute() {
+  const present = children.filter(c => c.present);
+  if (!present.length) { toast('出席者が0名です', 'warning'); return; }
+  if (present.length > 23) {
+    toast('経由地は最大23か所です（現在: ' + present.length + '名）', 'error'); return;
+  }
+  if (!mapsReady || !window.google) { toast('Maps APIが読み込まれていません', 'error'); return; }
+
+  const center     = document.getElementById('center-addr').value.trim();
+  const stopMin    = parseInt(document.getElementById('stop-min').value) || 3;
+  const dateStr    = document.getElementById('route-date').value;
+  const timeStr    = document.getElementById('depart-time').value;
+  const routeType  = document.getElementById('route-type').value;
+  const arrTimeStr = document.getElementById('arrival-time').value;
+
+  if (!center) { toast('センター住所を入力してください', 'error'); return; }
+
+  const [hh, mm] = timeStr.split(':').map(Number);
+  const depart   = new Date(dateStr);
+  depart.setHours(hh, mm, 0, 0);
+
+  // ── 前回ログをクリアして進捗表示開始 ──────────────
+  setLoading('opt-btn', true, '最適化中…');
+  document.getElementById('card-result').style.display = '';
+  document.getElementById('calc-progress').style.display = '';
+  document.getElementById('stats-bar').style.display = 'none';
+  document.getElementById('route-body').style.display = 'none';
+  clearOptLog();
+
+  // ── STEP 1: 入力値の確認 + 住所グループ化 ──────────
+  optLog('入力値を確認中...', 'step');
+  optLog(`出発地: ${center}`);
+  optLog(`出発日時: ${depart.toLocaleString('ja-JP')}`);
+
+  // 重複除去前の生住所をコンソールに出力（隠し文字の確認用）
+  console.log('[住所一覧・除去前]', present.map((c, i) => `${i+1}: ${JSON.stringify(c.address)}`));
+
+  const groups = buildAddressGroups(present);
+
+  // 重複除去結果をコンソールと画面に出力
+  console.log(`[buildAddressGroups] ${present.length}名 → ${groups.length}か所に集約`);
+  groups.forEach((g, i) => {
+    console.log(`[経由地${i+1}] ${JSON.stringify(g.address)} (${g.children.map(c => c.name).join('・')})`);
+  });
+  optLog(`出席者 ${present.length}名 → 重複除去後 ${groups.length}か所の経由地`);
+  groups.forEach((g, i) => {
+    const names = g.children.map(c => c.name).join('・');
+    optLog(`  [経由地${i+1}] ${names} @ ${g.address}`);
+  });
+
+  // ── STEP 2: Geocoding（Maps JS SDK の Geocoder を使用）──
+  optLog('住所をジオコーディング中（google.maps.Geocoder）...', 'step');
+  const centerLatLng = await geocodeGroups(groups, center);
+  const geocodedCount = groups.filter(g => g.latlng).length;
+  optLog(`ジオコーディング完了: ${geocodedCount}/${groups.length}か所 成功`, geocodedCount === groups.length ? 'ok' : 'warn');
+  if (centerLatLng) optLog(`  センター: (${centerLatLng.lat().toFixed(5)}, ${centerLatLng.lng().toFixed(5)})`, 'ok');
+
+  // ── STEP 3: Maps API の確認 ───────────────────────
+  optLog('Google Maps API の状態を確認中...', 'step');
+  optLog(`Maps API 読み込み済み: ${mapsReady}`);
+  optLog(`google.maps 利用可能: ${!!(window.google?.maps)}`);
+  optLog(`DirectionsService 利用可能: ${!!(window.google?.maps?.DirectionsService)}`);
+
+  ensureMap();
+
+  // ── STEP 3: リクエスト構築 ───────────────────────
+  const departForAPI = depart < new Date() ? new Date(Date.now() + 60000) : depart;
+  const usedTraffic  = departForAPI.getTime() !== depart.getTime();
+  if (usedTraffic) optLog('出発時刻が過去のため、現在時刻+1分に補正します', 'warn');
+
+  // 経由地の並び順（スプレッドシート記載順をそのまま使用）
+  const reversedGroups = [...groups];
+
+  const originLoc      = centerLatLng ?? center;
+  const destinationLoc = centerLatLng ?? center;
+
+  const request = {
+    origin:            originLoc,
+    destination:       destinationLoc,
+    waypoints:         reversedGroups.map(g => ({
+      location: g.latlng ?? g.address,
+      stopover: true,
+    })),
+    optimizeWaypoints: false,
+    travelMode:        google.maps.TravelMode.DRIVING,
+    region:            'JP',
+  };
+
+  optLog('DirectionsService リクエスト内容（逆順）:', 'step');
+  optLog(`  origin: ${centerLatLng ? `(${centerLatLng.lat().toFixed(5)}, ${centerLatLng.lng().toFixed(5)})` : center}`);
+  optLog(`  waypoints: ${request.waypoints.length}か所（逆順・optimizeWaypoints: false）`);
+  reversedGroups.forEach((g, i) => {
+    const loc = g.latlng ? `(${g.latlng.lat().toFixed(5)}, ${g.latlng.lng().toFixed(5)})` : g.address;
+    optLog(`    [${i+1}] ${g.children.map(c=>c.name).join('・')} → ${loc}`);
+  });
+  console.log('[DirectionsService] request (reversed):', {
+    origin:      originLoc?.toString?.() ?? center,
+    destination: destinationLoc?.toString?.() ?? center,
+    waypoints:   reversedGroups.map(g => g.latlng?.toString() ?? g.address),
+  });
+
+  // ── STEP 4: API 呼び出し ──────────────────────────
+  optLog('Directions API に送信中...', 'step');
+  const svc = new google.maps.DirectionsService();
+
+  try {
+    const result = await callDirections(svc, request);
+
+    // ── STEP 5: レスポンス解析 ────────────────────
+    optLog('レスポンスを解析中...', 'step');
+    const route   = result.routes[0];
+    const order   = route.waypoint_order;
+    const legs    = route.legs;
+    // reversedGroups を渡したので waypoint_order のインデックスは reversedGroups を参照
+    const ordered = order.map(i => reversedGroups[i]);
+
+    optLog(`最適化された経由順: ${order.join(' → ')}`);
+    optLog(`ルート脚数 (legs): ${legs.length}`);
+    ordered.forEach((g, i) => optLog(`  停車${i+1}: ${g.children.map(c => c.name).join('・')} @ ${g.address}`));
+
+    gRenderer.setMap(gMap);
+    gRenderer.setDirections(result);
+    addVisitOrderMarkers(ordered, legs);
+
+    // ── STEP 6: 到着予定時刻の計算 ───────────────
+    optLog('到着予定時刻を計算中...', 'step');
+    let cur = new Date(depart);
+    const stops = [{
+      kind: 'center', label: 'センター（出発）',
+      address: center, eta: new Date(cur),
+    }];
+
+    for (let i = 0; i < ordered.length; i++) {
+      const leg       = legs[i];
+      const travelSec = leg.duration_in_traffic?.value ?? leg.duration.value;
+      cur = new Date(cur.getTime() + travelSec * 1000);
+      const arrivalEta = new Date(cur);  // 実際の到着時刻
+      const group      = ordered[i];
+
+      // G列の指定到着時刻と比較
+      const scheduledTime = parseStopTime(group.stopTime, depart);
+      let waitMin = null, isDelay = false;
+      if (scheduledTime) {
+        const diffMs = scheduledTime - arrivalEta;
+        if (diffMs > 0) {
+          // 早着 → 指定時刻まで待機（後続の時刻計算も指定時刻基準にずらす）
+          waitMin = Math.round(diffMs / 60000);
+          cur     = new Date(scheduledTime);
+        } else if (diffMs < 0) {
+          // 遅延 → 実際の到着時刻のまま進む
+          isDelay = true;
+          waitMin = Math.round(-diffMs / 60000);
+        }
+      }
+
+      // グループ内の最大乗車時間を停車時間として使用
+      const childStop = Math.max(...group.children.map(c => c.boardMin != null ? c.boardMin : stopMin));
+      cur = new Date(cur.getTime() + childStop * 60 * 1000);
+
+      stops.push({
+        kind:          'child',
+        label:         group.stopName || group.children.map(c => c.name).join('・'),
+        address:       group.address,
+        children:      group.children,
+        boardMin:      childStop,
+        eta:           arrivalEta,
+        scheduledTime,
+        waitMin,
+        isDelay,
+        travelMin:     Math.ceil(travelSec / 60),
+        dist:          leg.distance.text,
+      });
+
+      const schedInfo = scheduledTime
+        ? ` / 指定${fmt(scheduledTime)}${isDelay ? ` ⚠遅延${waitMin}分` : waitMin > 0 ? ` 待機${waitMin}分` : ''}`
+        : '';
+      optLog(`  ${group.stopName || group.children.map(c => c.name).join('・')}: 到着 ${fmt(arrivalEta)}${schedInfo} (移動${Math.ceil(travelSec/60)}分)`);
+    }
+
+    const retLeg = legs[ordered.length];
+    const retSec = retLeg.duration_in_traffic?.value ?? retLeg.duration.value;
+    cur = new Date(cur.getTime() + retSec * 1000);
+    stops.push({
+      kind: 'center', label: 'センター（帰着）',
+      address: center, eta: new Date(cur),
+      travelMin: Math.ceil(retSec / 60), dist: retLeg.distance.text,
+    });
+
+    optLog(`センター帰着予定: ${fmt(stops.at(-1).eta)}`, 'ok');
+
+    // ── STEP 7: 表示 ──────────────────────────────
+    optLog('画面に結果を描画中...', 'step');
+    document.getElementById('calc-progress').style.display = 'none';
+    renderStats(route, stops, depart, routeType, arrTimeStr);
+    renderRouteList(stops, routeType, arrTimeStr);
+    buildPrintSection(stops, routeType, route, depart, arrTimeStr);
+    optLog('完了', 'ok');
+
+    setStep(4);
+    document.getElementById('card-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toast('ルートを最適化しました', 'success');
+
+  } catch (e) {
+    const statusInfo = e.apiStatus ? ` [APIステータス: ${e.apiStatus}]` : '';
+    document.getElementById('calc-progress').style.display = 'none';
+    console.error('[RouteOpt] Error:', e);
+    toast(`ルート最適化エラー: ${e.message}${statusInfo}`, 'error', 9000);
+  } finally {
+    setLoading('opt-btn', false, '🗺️ ルートを最適化する');
+  }
+}
+
+function dirError(status) {
+  return ({
+    NOT_FOUND:              '住所が見つかりません。住所を確認してください。',
+    ZERO_RESULTS:           'ルートが見つかりません。',
+    MAX_WAYPOINTS_EXCEEDED: '経由地が多すぎます（最大23か所）。',
+    INVALID_REQUEST:        'リクエストが不正です。住所を確認してください。',
+    OVER_DAILY_LIMIT:       'APIの日次上限に達しました。',
+    OVER_QUERY_LIMIT:       'クエリ上限を超えました。しばらくしてから再試行してください。',
+    REQUEST_DENIED:         'APIキーが無効か、Directions APIが有効になっていません。',
+    UNKNOWN_ERROR:          'サーバーエラーが発生しました（交通情報なしで再試行します）。',
+  })[status] || `不明なAPIステータス: ${status}`;
+}
+
+// ─────────────────────────────────────────
+//  Directions API テスト（自動連鎖実行）
+// ─────────────────────────────────────────
+function testLog(msg, type = 'info') {
+  const panel = document.getElementById('test-log');
+  if (!panel) return;
+  const icons  = { info:'▶', step:'⏳', ok:'✅', warn:'⚠️', error:'❌', sep:'─' };
+  const colors = { info:'var(--gray-800)', step:'var(--primary)', ok:'var(--success)', warn:'#e65100', error:'var(--danger)', sep:'var(--gray-400)' };
+  const div = document.createElement('div');
+  div.style.color = colors[type] || colors.info;
+  if (type === 'sep') {
+    div.style.margin = '6px 0';
+    div.textContent = '─'.repeat(40);
+  } else {
+    div.textContent = `${icons[type] || '▶'} ${msg}`;
+  }
+  panel.appendChild(div);
+  panel.scrollTop = panel.scrollHeight;
+  if (type !== 'sep') console.log(`[APITest][${type.toUpperCase()}] ${msg}`);
+}
+
+function clearTestLog() {
+  const panel = document.getElementById('test-log');
+  if (panel) panel.innerHTML = '';
+}
+
+function setTestBtnsDisabled(disabled) {
+  [1, 2, 3].forEach(n => {
+    const b = document.getElementById(`test${n}-btn`);
+    if (!b) return;
+    b.disabled = disabled;
+    if (disabled) {
+      b.innerHTML = `<span class="spinner"></span> 実行中…`;
+    } else {
+      b.innerHTML = b.dataset.label;
+    }
+  });
+}
+
+// Directions API をシンプルにラップ（drivingOptions なし）
+function callDirectionsTest(origin, dest, waypoints = []) {
+  return new Promise((resolve, reject) => {
+    const svc = new google.maps.DirectionsService();
+    const req = {
+      origin,
+      destination: dest,
+      travelMode:  google.maps.TravelMode.DRIVING,
+    };
+    if (waypoints.length > 0) {
+      req.waypoints         = waypoints.map(a => ({ location: a, stopover: true }));
+      req.optimizeWaypoints = true;
+    }
+    console.log('[APITest] → request:', { origin, dest, waypoints });
+    svc.route(req, (res, status) => {
+      console.log('[APITest] ← status:', status, res);
+      if (status === 'OK') {
+        resolve(res);
+      } else {
+        const err = new Error(status);   // メッセージに生ステータスを入れる
+        err.apiStatus = status;
+        reject(err);
+      }
+    });
+  });
+}
+
+// テスト1ボタンで 1→2→3 を自動連鎖実行
+async function runApiTest(startNum) {
+  clearTestLog();
+  setTestBtnsDisabled(true);
+
+  try {
+    // ── Maps API の準備 ──────────────────────────────
+    const mapsKey = document.getElementById('maps-key').value.trim();
+    if (!mapsKey) {
+      testLog('Maps APIキーが未入力です。⚙️ API設定 に入力してください。', 'error');
+      return;
+    }
+    testLog('Maps API を確認中...', 'step');
+    if (!mapsReady) await loadMapsAPI(mapsKey);
+    testLog(`Maps API: 読み込み済み ✓`, 'ok');
+
+    const origin = document.getElementById('test-origin').value.trim();
+    const dest   = document.getElementById('test-dest').value.trim();
+
+    // ── テスト1 ───────────────────────────────────────
+    if (startNum <= 1) {
+      testLog('', 'sep');
+      const ok1 = await _runTest1(origin, dest);
+      if (!ok1) return;                      // テスト1失敗 → 停止
+      await _sleep(500);
+    }
+
+    // ── テスト2 ───────────────────────────────────────
+    if (startNum <= 2) {
+      testLog('', 'sep');
+      const ok2 = await _runTest2(origin, dest);
+      if (!ok2) return;                      // テスト2失敗 → 停止
+      await _sleep(500);
+    }
+
+    // ── テスト3 ───────────────────────────────────────
+    testLog('', 'sep');
+    await _runTest3(origin, dest);
+
+  } catch (e) {
+    testLog(`予期しないエラー: ${e.message}`, 'error');
+    console.error('[APITest] unexpected:', e);
+  } finally {
+    setTestBtnsDisabled(false);
+  }
+}
+
+const _sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ── テスト1：最小構成（経由地なし・オプション全削除）──
+async function _runTest1(origin, dest) {
+  testLog('テスト1: 最小構成（経由地なし）', 'step');
+  testLog(`  出発地: ${origin}`);
+  testLog(`  目的地: ${dest}`);
+  testLog(`  経由地: なし  /  オプション: 全て削除`);
+  testLog('  送信中...', 'step');
+  try {
+    const res = await callDirectionsTest(origin, dest, []);
+    const leg = res.routes[0].legs[0];
+    testLog(`テスト1 成功 ✓ → 距離: ${leg.distance.text}　所要時間: ${leg.duration.text}`, 'ok');
+    testLog('テスト2 に自動で進みます...', 'info');
+    return true;
+  } catch (e) {
+    testLog(`テスト1 失敗 ✗  エラーコード: ${e.apiStatus}`, 'error');
+    _showApiHint(e.apiStatus);
+    return false;
+  }
+}
+
+// ── テスト2：経由地1件 ──────────────────────────────
+async function _runTest2(origin, dest) {
+  testLog('テスト2: 経由地1件追加', 'step');
+  const groups = buildAddressGroups(children.filter(c => c.present));
+  const g0     = groups[0];
+  if (!g0) {
+    testLog('  経由地の住所がありません。先にスプレッドシートを読み込んでください。', 'warn');
+    return false;
+  }
+  testLog(`  経由地1: ${g0.address}（${g0.children.map(c => c.name).join('・')}）`);
+  testLog('  送信中...', 'step');
+  try {
+    const res   = await callDirectionsTest(origin, dest, [g0.address]);
+    const total = res.routes[0].legs.reduce((s, l) => s + l.distance.value, 0);
+    testLog(`テスト2 成功 ✓ → 総距離: ${(total / 1000).toFixed(1)} km`, 'ok');
+    testLog('テスト3 に自動で進みます...', 'info');
+    return true;
+  } catch (e) {
+    testLog(`テスト2 失敗 ✗  エラーコード: ${e.apiStatus}`, 'error');
+    testLog(`  → 経由地「${g0.address}」の住所形式を確認してください`, 'warn');
+    _showApiHint(e.apiStatus);
+    return false;
+  }
+}
+
+// ── テスト3：経由地を1件ずつ増やして失敗箇所を特定 ──
+async function _runTest3(origin, dest) {
+  testLog('テスト3: 経由地を1件ずつ追加して失敗箇所を特定', 'step');
+  const groups = buildAddressGroups(children.filter(c => c.present));
+  if (!groups.length) {
+    testLog('  経由地の住所がありません。先にスプレッドシートを読み込んでください。', 'warn');
+    return;
+  }
+  testLog(`  テスト対象: ${groups.length}か所`);
+  groups.forEach((g, i) =>
+    testLog(`    [${i+1}] ${g.address}（${g.children.map(c => c.name).join('・')}）`));
+
+  let lastOk = 0;
+  for (let n = 1; n <= groups.length; n++) {
+    const wps = groups.slice(0, n).map(g => g.address);
+    testLog(`  経由地 ${n}/${groups.length} 件: ${groups[n-1].address}`, 'step');
+    try {
+      await callDirectionsTest(origin, dest, wps);
+      testLog(`  → ${n}件: 成功 ✓`, 'ok');
+      lastOk = n;
+    } catch (e) {
+      testLog(`  → ${n}件: 失敗 ✗  エラーコード: ${e.apiStatus}`, 'error');
+      testLog(`  ★ ${lastOk}件まで OK / ${n}件目「${groups[n-1].address}」で失敗`, 'warn');
+      _showApiHint(e.apiStatus);
+      return;
+    }
+    await _sleep(350);  // レート制限防止
+  }
+  testLog(`全 ${groups.length}件 テスト成功！ ルート最適化ボタンをお試しください。`, 'ok');
+}
+
+function _showApiHint(status) {
+  const hints = {
+    REQUEST_DENIED:  'APIキーが無効か、Directions APIが有効化されていません。Cloud Console を確認してください。',
+    UNKNOWN_ERROR:   'Billing（お支払い）が未設定の可能性があります。Cloud Console でプロジェクトに請求先を紐付けてください。',
+    NOT_FOUND:       '住所が見つかりません。住所の表記を確認してください。',
+    ZERO_RESULTS:    'ルートが見つかりません。出発地・目的地を確認してください。',
+    OVER_DAILY_LIMIT:'APIの日次使用上限に達しました。',
+    OVER_QUERY_LIMIT:'クエリ上限超過。しばらく待ってから再試行してください。',
+  };
+  if (hints[status]) testLog(`  💡 ${hints[status]}`, 'warn');
+}
+
+// ─────────────────────────────────────────
+//  Render stats bar
+// ─────────────────────────────────────────
+// ─────────────────────────────────────────
+//  印刷用セクション生成
+// ─────────────────────────────────────────
+function buildPrintSection(stops, routeType, route, depart, arrTimeStr) {
+  const dateStr     = document.getElementById('route-date').value;
+  const dayName     = getDayName(dateStr);
+  const totalM      = route.legs.reduce((s, l) => s + l.distance.value, 0);
+  const km          = (totalM / 1000).toFixed(1);
+  const durMin      = Math.round((stops.at(-1).eta - depart) / 60000);
+  const childStops  = stops.filter(s => s.kind === 'child');
+  const kidCnt      = childStops.reduce((n, s) => n + (s.children?.length ?? 1), 0);
+  const stopCnt     = childStops.length;
+  const returnEta   = stops.at(-1).eta;
+  const typeLabel   = routeType === 'pickup' ? 'お迎え' : 'お送り';
+
+  // 日付フォーマット
+  const dateObj       = new Date(dateStr + 'T12:00:00');
+  const dateFormatted = dateObj.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+  const dayLabel      = dayName ? `（${dayName}曜日）` : '';
+
+  // 各停車地の行を生成（センター出発・帰着は除く）
+  const rows = childStops.map((stop, i) => {
+    const etaStr  = fmt(stop.eta);
+    const schStr  = stop.scheduledTime ? fmt(stop.scheduledTime) : '−';
+    let statusHtml = '';
+    if (stop.waitMin != null && stop.waitMin > 0) {
+      if (stop.isDelay) {
+        statusHtml = `<span style="color:red;font-weight:bold;">⚠ 遅延${stop.waitMin}分</span>`;
+      } else {
+        statusHtml = `待機${stop.waitMin}分`;
+      }
+    }
+    const names = stop.children?.map(c => esc(c.name)).join('<br>') ?? esc(stop.label);
+    return `<tr>
+      <td style="text-align:center;font-size:14pt;">${CIRCLED_NUMS[i] ?? String(i + 1)}</td>
+      <td><strong>${esc(stop.label)}</strong></td>
+      <td style="font-size:9pt;color:#444;">${esc(stop.address)}</td>
+      <td style="text-align:center;">${schStr}</td>
+      <td style="text-align:center;">${etaStr}</td>
+      <td style="text-align:center;">${statusHtml}</td>
+      <td>${names}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('print-section').innerHTML = `
+    <div style="text-align:center;padding-bottom:10px;border-bottom:2px solid #222;margin-bottom:14px;">
+      <div style="font-size:16pt;font-weight:bold;letter-spacing:.05em;">児童発達支援センターきらり</div>
+      <div style="font-size:13pt;margin-top:4px;">${typeLabel}ルート</div>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:6px 32px;margin-bottom:12px;font-size:11pt;">
+      <div><strong>送迎日：</strong>${dateFormatted}${dayLabel}</div>
+      <div><strong>ルート種別：</strong>${typeLabel}</div>
+    </div>
+
+    <div class="print-stats" style="display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #aaa;border-radius:4px;overflow:hidden;margin-bottom:16px;text-align:center;">
+      <div style="padding:8px 4px;border-right:1px solid #aaa;">
+        <div style="font-size:8.5pt;color:#555;">出発時刻</div>
+        <div style="font-size:15pt;font-weight:bold;">${fmt(stops[0].eta)}</div>
+      </div>
+      <div style="padding:8px 4px;border-right:1px solid #aaa;">
+        <div style="font-size:8.5pt;color:#555;">センター帰着予定</div>
+        <div style="font-size:15pt;font-weight:bold;">${fmt(returnEta)}</div>
+      </div>
+      <div style="padding:8px 4px;">
+        <div style="font-size:8.5pt;color:#555;">総走行距離</div>
+        <div style="font-size:15pt;font-weight:bold;">${km} km</div>
+      </div>
+      <div style="padding:8px 4px;border-right:1px solid #aaa;border-top:1px solid #aaa;">
+        <div style="font-size:8.5pt;color:#555;">総所要時間</div>
+        <div style="font-size:15pt;font-weight:bold;">${durMin} 分</div>
+      </div>
+      <div style="padding:8px 4px;border-right:1px solid #aaa;border-top:1px solid #aaa;">
+        <div style="font-size:8.5pt;color:#555;">${typeLabel}人数</div>
+        <div style="font-size:15pt;font-weight:bold;">${kidCnt} 名</div>
+      </div>
+      <div style="padding:8px 4px;border-top:1px solid #aaa;">
+        <div style="font-size:8.5pt;color:#555;">停車箇所</div>
+        <div style="font-size:15pt;font-weight:bold;">${stopCnt} か所</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:36px;">No.</th>
+          <th style="min-width:90px;">停車地名</th>
+          <th>住所</th>
+          <th style="width:72px;">指定時刻</th>
+          <th style="width:72px;">到着予定</th>
+          <th style="width:72px;">待機 / 遅延</th>
+          <th style="min-width:80px;">乗車する子ども</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div style="margin-top:14px;font-size:8.5pt;color:#666;text-align:right;">
+      出力日時：${new Date().toLocaleString('ja-JP')}
+    </div>`;
+
+  // 印刷ボタンを表示
+  const printBtn = document.getElementById('print-btn');
+  if (printBtn) printBtn.style.display = '';
+}
+
+function renderStats(route, stops, depart, routeType, arrTimeStr) {
+  const totalM     = route.legs.reduce((s, l) => s + l.distance.value, 0);
+  const durMin     = Math.round((stops.at(-1).eta - depart) / 60000);
+  const childStops = stops.filter(s => s.kind === 'child');
+  const stopCnt    = childStops.length;
+  const kidCnt     = childStops.reduce((n, s) => n + (s.children?.length ?? 1), 0);
+  const km         = (totalM / 1000).toFixed(1);
+  const returnEta  = stops.at(-1).eta;
+
+  // 到着希望時刻との比較
+  let arrClass = '';
+  let arrLabel = '帰着予定';
+  if (arrTimeStr) {
+    const [ah, am] = arrTimeStr.split(':').map(Number);
+    const desired  = new Date(depart);
+    desired.setHours(ah, am, 0, 0);
+    arrClass = returnEta > desired ? 'over-time' : '';
+    arrLabel = returnEta > desired ? '⚠ 帰着（超過）' : '✔ 帰着（時刻内）';
+  }
+
+  const bar = document.getElementById('stats-bar');
+  bar.style.display = '';
+  bar.innerHTML = `
+    <div class="stat-item">
+      <div class="stat-value">${kidCnt}</div>
+      <div class="stat-label">${routeType === 'pickup' ? 'お迎え' : 'お送り'}人数</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">${stopCnt}</div>
+      <div class="stat-label">停車箇所</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">${km} km</div>
+      <div class="stat-label">総走行距離</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">${durMin} 分</div>
+      <div class="stat-label">総所要時間</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">${fmt(stops[0].eta)}</div>
+      <div class="stat-label">出発時刻</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value ${arrClass}">${fmt(returnEta)}</div>
+      <div class="stat-label">${arrLabel}</div>
+    </div>`;
+}
+
+// ─────────────────────────────────────────
+//  Render route list
+// ─────────────────────────────────────────
+function renderRouteList(stops, routeType, arrTimeStr) {
+  const ul   = document.getElementById('route-list');
+  const body = document.getElementById('route-body');
+  ul.innerHTML = '';
+  body.style.display = '';
+
+  // 到着希望時刻アラート
+  const alertEl = document.getElementById('arrival-alert');
+  if (arrTimeStr) {
+    const returnEta = stops.at(-1).eta;
+    const [ah, am]  = arrTimeStr.split(':').map(Number);
+    const desired   = new Date(stops[0].eta);
+    desired.setHours(ah, am, 0, 0);
+    const diff = Math.round((returnEta - desired) / 60000);
+
+    if (diff > 0) {
+      alertEl.innerHTML = `<div class="alert alert-warning">⚠️ 到着希望時刻 ${arrTimeStr} を <strong>${diff}分</strong> 超過する見込みです。</div>`;
+    } else {
+      alertEl.innerHTML = `<div class="alert alert-success">✅ 到着希望時刻 ${arrTimeStr} より <strong>${Math.abs(diff)}分</strong> 早く帰着できる見込みです。</div>`;
+    }
+  } else {
+    alertEl.innerHTML = '';
+  }
+
+  stops.forEach((stop, idx) => {
+    // コネクター（移動情報）
+    if (idx > 0 && stop.travelMin) {
+      const conn = document.createElement('div');
+      conn.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;padding-left:17px;';
+      conn.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;padding:2px 0;">
+          <div style="width:1.5px;min-height:32px;background:var(--gray-200);margin-left:0;"></div>
+          <span style="font-size:12px;color:var(--gray-600);">🚗 移動 ${stop.travelMin}分 / ${stop.dist}</span>
+        </div>`;
+      ul.appendChild(conn);
+    }
+
+    const li = document.createElement('li');
+    li.className = 'route-item';
+
+    let circleClass, circleLabel;
+    if (idx === 0) {
+      circleClass = 'origin'; circleLabel = '発';
+    } else if (idx === stops.length - 1) {
+      circleClass = 'dest'; circleLabel = '着';
+    } else {
+      circleClass = 'child';
+      circleLabel = CIRCLED_NUMS[idx - 1] ?? String(idx);  // ①②③…
+    }
+
+    const action   = stop.kind === 'child'
+      ? (routeType === 'pickup' ? 'お迎え' : 'お送り') : '';
+    const etaLabel = idx === 0 ? '出発' : idx === stops.length - 1 ? '帰着予定' : '到着予定';
+
+    // 指定時刻がある停車地は指定時刻を表示、なければ実際のETA
+    const displayTime = (stop.scheduledTime) ? stop.scheduledTime : stop.eta;
+
+    // 待機・遅延バッジ
+    let statusBadge = '';
+    if (stop.kind === 'child' && stop.waitMin != null && stop.waitMin > 0) {
+      if (stop.isDelay) {
+        statusBadge = `<div style="color:var(--danger);font-size:11px;font-weight:700;margin-top:3px;">⚠ 遅延 ${stop.waitMin}分</div>`;
+      } else {
+        statusBadge = `<div style="color:#e65100;font-size:11px;margin-top:3px;">待機 ${stop.waitMin}分</div>`;
+      }
+    }
+
+    // 同住所の子ども一覧（名前・電話・乗車時間）
+    let childrenHtml = '';
+    if (stop.kind === 'child' && stop.children?.length) {
+      childrenHtml = stop.children.map(c => {
+        const phone = c.phone ? `　<span style="color:var(--gray-600);">📞 ${esc(c.phone)}</span>` : '';
+        return `<div style="font-size:12px;margin-top:3px;">🧒 <strong>${esc(c.name)}</strong>${phone}</div>`;
+      }).join('');
+    }
+
+    const boardLine = stop.kind === 'child' && stop.boardMin != null
+      ? `　<span style="color:var(--gray-600);">🕐 停車 ${stop.boardMin}分</span>` : '';
+
+    li.innerHTML = `
+      <div class="stop-circle ${circleClass}">${circleLabel}</div>
+      <div class="stop-info">
+        <div class="stop-name">
+          ${action ? `<span style="font-size:11px;font-weight:700;color:var(--success);background:#e6f4ea;padding:1px 7px;border-radius:10px;margin-right:6px;">${action}</span>` : ''}${esc(stop.label)}
+        </div>
+        <div class="stop-sub">📍 ${esc(stop.address)}${boardLine}</div>
+        ${childrenHtml}
+      </div>
+      <div class="stop-time">
+        <div class="time-eta ${stop.isDelay ? 'over-time' : ''}">${fmt(displayTime)}</div>
+        <div class="time-label">${etaLabel}</div>
+        ${statusBadge}
+      </div>`;
+    ul.appendChild(li);
+  });
+}
+
+function fmt(date) {
+  return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+}
+
+// "HH:MM" 文字列を dateRef と同日の Date に変換
+// 全角コロン「：」・全角数字も受け付ける（NFKC正規化）
+function parseStopTime(timeStr, dateRef) {
+  if (!timeStr) return null;
+  const s = timeStr.normalize('NFKC').trim();
+  const m = s.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const d = new Date(dateRef);
+  d.setHours(parseInt(m[1]), parseInt(m[2]), 0, 0);
+  return d;
+}
+
+// ─────────────────────────────────────────
+//  推奨出発時刻の計算
+// ─────────────────────────────────────────
+async function calcRecommendedDeparture() {
+  const center = document.getElementById('center-addr').value.trim();
+  if (!center) { toast('事業所住所が未入力です', 'warning'); return; }
+  if (!mapsReady) { toast('Google Maps APIが未準備です', 'warning'); return; }
+
+  const present = children.filter(c => c.present);
+  if (!present.length) { toast('出席者が0名です', 'warning'); return; }
+
+  const groups = buildAddressGroups(present);
+
+  // G列(stopTime)が設定されている最初のグループを探す
+  const firstGroup = groups.find(g => g.stopTime);
+  if (!firstGroup) {
+    document.getElementById('depart-recommend').innerHTML =
+      '<div style="font-size:13px;color:var(--gray-500);margin-top:6px;">指定到着時刻(G列)が設定された停車地がないため計算できません。</div>';
+    return;
+  }
+
+  const bufferMin = parseInt(document.getElementById('recommend-buffer').value) || 5;
+  const dateStr   = document.getElementById('route-date').value
+                  || new Date().toISOString().slice(0, 10);
+
+  // stopTime を Date 化（NFKC正規化済み）
+  const scheduled = parseStopTime(firstGroup.stopTime, dateStr + 'T00:00:00');
+  if (!scheduled) { toast('指定到着時刻の形式が無効です', 'warning'); return; }
+
+  const recEl = document.getElementById('depart-recommend');
+  recEl.innerHTML = '<div style="font-size:13px;color:var(--gray-500);margin-top:6px;">移動時間を計算中…</div>';
+  setLoading('recommend-btn', true, '計算中…');
+
+  try {
+    const ds = new google.maps.DirectionsService();
+    const result = await new Promise((resolve, reject) => {
+      ds.route({
+        origin:      normalizeAddressForGeocode(center),
+        destination: normalizeAddressForGeocode(firstGroup.address),
+        travelMode:  google.maps.TravelMode.DRIVING,
+      }, (res, status) => {
+        if (status === 'OK') resolve(res);
+        else reject(Object.assign(new Error('Directions: ' + status), { apiStatus: status }));
+      });
+    });
+
+    const travelSec = result.routes[0].legs[0].duration.value;
+    const travelMin = Math.ceil(travelSec / 60);
+
+    // 推奨出発時刻 = 指定時刻 - 移動時間 - 余裕時間
+    const recDate = new Date(scheduled.getTime() - (travelSec + bufferMin * 60) * 1000);
+    const recStr  = recDate.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    const stopLabel  = firstGroup.stopName || firstGroup.children.map(c => c.name).join('・');
+    const groupIdx   = groups.indexOf(firstGroup);
+    const circled    = CIRCLED_NUMS[groupIdx] ?? String(groupIdx + 1);
+    const schDisplay = firstGroup.stopTime.normalize('NFKC').trim().slice(0, 5);
+
+    recEl.innerHTML = `
+      <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;
+                  padding:12px 16px;margin-top:8px;display:flex;align-items:center;
+                  gap:16px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:11px;color:#388e3c;font-weight:600;margin-bottom:2px;">💡 推奨出発時刻</div>
+          <div style="font-size:26px;font-weight:bold;color:#1b5e20;line-height:1;">${recStr}</div>
+        </div>
+        <div style="font-size:12px;color:#2e7d32;flex:1;min-width:180px;">
+          ${circled}${esc(stopLabel)} <strong>${schDisplay}</strong>指定<br>
+          移動 ${travelMin}分 ＋ 余裕 ${bufferMin}分
+        </div>
+        <button class="btn btn-success btn-sm"
+                onclick="adoptRecommendedDeparture('${recStr}')">
+          ✅ この時刻を採用
+        </button>
+      </div>`;
+
+  } catch (e) {
+    recEl.innerHTML = `<div style="font-size:13px;color:var(--danger);margin-top:6px;">移動時間の取得に失敗しました（${esc(e.message)}）</div>`;
+  } finally {
+    setLoading('recommend-btn', false, '⏱ 推奨出発時刻を計算');
+  }
+}
+
+function adoptRecommendedDeparture(timeStr) {
+  const input = document.getElementById('depart-time');
+  input.value = timeStr;
+  // 採用したことを視覚的にフィードバック
+  input.style.transition = 'background-color 0.15s';
+  input.style.backgroundColor = '#c8e6c9';
+  setTimeout(() => { input.style.backgroundColor = ''; }, 1200);
+  toast(`出発時刻を ${timeStr} に設定しました`, 'success');
+}
+
+// ─────────────────────────────────────────
+//  印刷：停車数に応じた自動スケール調整
+// ─────────────────────────────────────────
+window.addEventListener('beforeprint', onBeforePrint);
+window.addEventListener('afterprint',  onAfterPrint);
+
+function onBeforePrint() {
+  const section = document.getElementById('print-section');
+  if (!section || !section.innerHTML.trim()) return;
+
+  // display:none の要素は offsetHeight=0 のため、一時的にオフスクリーンで測定
+  const orig = section.getAttribute('style') || '';
+  section.style.cssText = 'display:block;position:fixed;left:-99999px;top:0;width:190mm;visibility:hidden;';
+  const sectionPx = section.scrollHeight;
+  section.setAttribute('style', orig);
+
+  if (!sectionPx) return;
+
+  // A4 使用可能高さ: 277mm を 96dpi 換算（1mm ≈ 3.7795px）
+  const MM_TO_PX  = 96 / 25.4;
+  const A4_H_PX   = Math.round(277 * MM_TO_PX); // ≈ 1047px
+  const MAP_MIN   = Math.round(40  * MM_TO_PX); // 最低地図高さ 40mm ≈ 151px
+  const OVERHEAD  = Math.round(26  * MM_TO_PX); // 見出し・余白 26mm ≈  98px
+
+  const totalMin = sectionPx + MAP_MIN + OVERHEAD;
+
+  if (totalMin > A4_H_PX) {
+    const scale = A4_H_PX / totalMin;
+    const el = document.getElementById('card-result');
+    el.style.transform       = `scale(${scale.toFixed(4)})`;
+    el.style.transformOrigin = 'top left';
+    // スケール縮小分だけ幅を広げて右端の空白を埋める
+    el.style.width           = `${(100 / scale).toFixed(2)}%`;
+  }
+}
+
+function onAfterPrint() {
+  const el = document.getElementById('card-result');
+  if (!el) return;
+  el.style.transform       = '';
+  el.style.transformOrigin = '';
+  el.style.width           = '';
+}
+</script>
+</body>
+</html>
