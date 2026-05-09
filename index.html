@@ -647,6 +647,43 @@
       .input-lg { font-size: 15px !important; }
     }
 
+    @media (max-width: 430px) {
+      /* ヘッダー日付枠 */
+      #today-badge {
+        font-size: 10px !important;
+        padding: 2px 5px !important;
+        max-width: 40vw !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        flex-shrink: 1 !important;
+      }
+      /* 法人名 */
+      .org-name {
+        font-size: 8px !important;
+        white-space: nowrap !important;
+        max-width: 40vw !important;
+        overflow: hidden !important;
+      }
+      /* 出発時刻入力 */
+      #depart-time {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+      }
+      /* フォームグリッド */
+      .form-grid {
+        grid-template-columns: 1fr !important;
+        width: 100% !important;
+        overflow: hidden !important;
+      }
+      /* ヘッダー全体 */
+      header, .app-header {
+        overflow: hidden !important;
+      }
+    }
+
     @media (max-width: 480px) {
       .date-badge {
         font-size: 10px;
