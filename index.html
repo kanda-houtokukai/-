@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>送迎ルート最適化システム | 児童発達支援センター</title>
+  <title>児童発達支援センターきらり｜送迎ルート最適化</title>
   <style>
     :root {
       --primary:       #1a73e8;
@@ -780,7 +780,7 @@
 
       <!-- 印刷ボタン（ルート一覧の直下） -->
       <div class="no-print" style="margin-top:24px;padding-top:20px;border-top:2px solid var(--gray-200);text-align:center;">
-        <button id="print-btn" onclick="window.print()"
+        <button id="print-btn" onclick="if(gMap){google.maps.event.trigger(gMap,'resize');setTimeout(()=>window.print(),500);}else{window.print();}"
                 style="display:none;padding:14px 36px;font-size:16px;font-weight:700;
                        background:#f57c00;color:#fff;border:none;border-radius:12px;
                        cursor:pointer;transition:background .15s,transform .1s,box-shadow .15s;
