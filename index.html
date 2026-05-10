@@ -44,43 +44,41 @@
       padding: 4px 20px;
       height: 64px;
       box-sizing: border-box;
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      gap: 10px;
+      column-gap: 8px;
       box-shadow: 0 2px 6px rgba(0,0,0,.2);
       position: sticky;
       top: 0;
       z-index: 100;
     }
     .app-header button#app-title {
-      white-space: nowrap;
-      line-height: 1.25;
+      justify-self: center;
       display: flex;
-      flex-direction: row;
       align-items: center;
-      gap: 10px;
+      justify-content: center;
     }
     .title-line1 {
-      font-size: 13px;
+      font-size: 8px;
       font-weight: 700;
       letter-spacing: 0.5px;
     }
     .title-line2 {
-      font-size: 11px;
+      font-size: 7px;
       font-weight: 600;
       letter-spacing: 0.5px;
     }
     .header-logo {
-      height: 56px !important;
+      height: 45px !important;
       width: auto;
       display: block;
     }
     .app-header .badge {
-      margin-left: auto;
-      font-size: 11px;
+      justify-self: end;
+      font-size: 8px;
       line-height: 1.4;
       text-align: right;
-      flex-shrink: 1;
       min-width: 0;
     }
     .date-badge {
@@ -88,11 +86,11 @@
       background: rgba(255,255,255,.2);
       border: 1px solid rgba(255,255,255,.5);
       border-radius: 8px;
-      padding: 2px 8px;
+      padding: 1px 6px;
       white-space: nowrap;
     }
     .org-name {
-      font-size: 9px;
+      font-size: 6px;
       opacity: 0.9;
       margin-top: 2px;
       white-space: nowrap;
@@ -671,10 +669,9 @@
 
     /* ── Responsive ── */
     @media (max-width: 640px) {
-      .app-header button#app-title { font-size: 19px; }
-      .title-line1 { font-size: 12px; }
-      .title-line2 { font-size: 10px; }
-      .header-logo { height: 56px !important; }
+      .title-line1 { font-size: 7px; }
+      .title-line2 { font-size: 6px; }
+      .header-logo { height: 45px !important; }
       .stats-bar { flex-wrap: wrap; }
       .stat-item { min-width: 50%; border-right: 1px solid var(--gray-200); }
       .form-grid { grid-template-columns: 1fr; }
@@ -691,46 +688,35 @@
     }
 
     @media (max-width: 430px) {
-      /* ヘッダー全体：スマホは高さを抑えつつ上下中央揃え */
+      /* ヘッダー全体：グリッドレイアウト継続、高さ抑制 */
       .app-header {
         overflow: hidden !important;
         height: 48px !important;
         padding: 0 12px !important;
-        justify-content: space-between !important;
+        grid-template-columns: 1fr auto 1fr !important;
         align-items: center !important;
         width: 100% !important;
         box-sizing: border-box !important;
       }
-      /* h1：縮めてバッジにスペースを渡す */
-      .app-header button#app-title {
-        flex-shrink: 1 !important;
-        min-width: 0 !important;
-        align-items: center !important;
-      }
-      /* 左のテキスト列も上下中央に */
-      .app-header > div:first-child {
-        justify-content: center !important;
-      }
-      .title-line1 { font-size: 11px !important; }
-      .title-line2 { font-size: 9px !important; }
-      .header-logo { height: 46px !important; }
+      .title-line1 { font-size: 7px !important; }
+      .title-line2 { font-size: 5px !important; }
+      .header-logo { height: 37px !important; }
       /* ヘッダー日付枠 */
       #today-badge {
-        flex-shrink: 0 !important;
         min-width: 0 !important;
-        max-width: 44% !important;
         text-align: right !important;
-        overflow: visible !important;
+        overflow: hidden !important;
+        font-size: 7px !important;
       }
       .date-badge {
-        font-size: 10px !important;
-        padding: 2px 5px !important;
+        font-size: 7px !important;
+        padding: 1px 4px !important;
         white-space: nowrap !important;
         display: inline-block !important;
       }
       /* 法人名 */
       .org-name {
-        font-size: 8px !important;
+        font-size: 6px !important;
         white-space: nowrap !important;
       }
       /* 出発時刻入力 */
@@ -825,7 +811,7 @@
   </div>
   <!-- 中央：ロゴ画像（ホームに戻るボタン） -->
   <button id="app-title" onclick="location.reload()" title="ホームに戻る"
-    style="background:none;border:none;cursor:pointer;padding:0;flex:1;display:flex;justify-content:center;align-items:center;">
+    style="background:none;border:none;cursor:pointer;padding:0;display:flex;justify-content:center;align-items:center;">
     <img src="logo.png" alt="つながるーど" class="header-logo">
   </button>
   <!-- 右：日付バッジ -->
