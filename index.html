@@ -409,7 +409,7 @@
     .depart-time-sub { font-size: 10px; color: var(--success); font-weight: 700; }
     .route-item.departed { opacity: 0.4; transition: opacity .3s; }
     .sync-status { font-size: 11px; color: var(--gray-500); text-align: right; margin-bottom: 6px; }
-    .view-mode .depart-col { display: none !important; }
+    .view-mode .depart-btn { display: none !important; }
     .confirm-route-btn { padding: 12px 24px; font-size: 15px; font-weight: 700; background: var(--success); color: #fff; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 2px 6px rgba(52,168,83,.4); transition: background .15s; }
     .confirm-route-btn:hover:not(:disabled) { background: var(--success-dark); }
     .confirm-route-btn:disabled { background: var(--gray-300); color: var(--gray-600); cursor: default; box-shadow: none; }
@@ -2399,6 +2399,30 @@ function fmt(date) {
   return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
 }
 
+// GASから復元したルートの地図を再描画
+async function redrawMapRoute(stops) {
+  if (!stops || stops.length < 2) return;
+  if (!mapsReady) return;
+  try {
+    ensureMap();
+    const origin      = stops[0].address;
+    const destination = stops[stops.length - 1].address;
+    const waypoints   = stops.slice(1, -1).map(s => ({ location: s.address, stopover: true }));
+    const svc = new google.maps.DirectionsService();
+    const result = await new Promise((resolve, reject) => {
+      svc.route({
+        origin, destination, waypoints,
+        travelMode: google.maps.TravelMode.DRIVING,
+        optimizeWaypoints: false,
+      }, (res, status) => status === 'OK' ? resolve(res) : reject(status));
+    });
+    gRenderer.setMap(gMap);
+    gRenderer.setDirections(result);
+  } catch (e) {
+    console.warn('[地図再描画] エラー:', e);
+  }
+}
+
 // ─────────────────────────────────────────
 //  リアルタイム運行管理
 // ─────────────────────────────────────────
@@ -2455,8 +2479,10 @@ async function syncOperation() {
           gCurrentRouteType  = data.routeType;
           gCurrentArrTimeStr = data.arrTimeStr;
           document.getElementById('card-result').style.display = '';
+          if (!sessionStorage.getItem('parentSession')) isViewMode = true;
           renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
-          updateModeUI();  // isViewMode は変えない（操作モードのまま）
+          updateModeUI();
+          redrawMapRoute(gCurrentStops);
           if (!syncTimerId) syncTimerId = setInterval(syncOperation, 30000);
           toast('📡 運行中のルートを自動表示しています', 'info');
         } catch (e) { console.warn('[同期] スナップショット復元失敗:', e); }
@@ -2487,7 +2513,11 @@ function applyDepartureState() {
     }
     if (departureRecords[idx] !== undefined) {
       if (btn) { btn.disabled = true; btn.textContent = '✅ 出発済み'; }
-      if (sub) sub.textContent = departureRecords[idx];
+      // GASのDate自動変換対策: "HH:MM"形式以外は非表示
+      if (sub) {
+        const t = String(departureRecords[idx]);
+        sub.textContent = /^\d{1,2}:\d{2}$/.test(t) ? t : '';
+      }
     }
   });
 }
@@ -2605,6 +2635,7 @@ async function confirmRoute() {
 
   try {
     await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
+    sessionStorage.setItem('parentSession', '1');  // この端末が親端末であることを記録
     updateConfirmButton(true);
     toast('ルートを確定しました', 'success');
   } catch (err) {
@@ -2632,10 +2663,16 @@ async function checkConfirmedRoute(dateStr) {
     gCurrentRouteType  = data.routeType;
     gCurrentArrTimeStr = data.arrTimeStr;
 
+    // 親端末以外（sessionStorageにフラグなし）は自動的に閲覧モードに
+    if (!sessionStorage.getItem('parentSession')) {
+      isViewMode = true;
+    }
+
     document.getElementById('card-result').style.display = '';
     renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
     updateConfirmButton(true);
-    updateModeUI();  // isViewMode は変えない（操作モードのまま）
+    updateModeUI();
+    redrawMapRoute(gCurrentStops);  // 地図を再描画
 
     if (!syncTimerId) {
       syncOperation();
