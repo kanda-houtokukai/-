@@ -2456,8 +2456,7 @@ async function syncOperation() {
           gCurrentArrTimeStr = data.arrTimeStr;
           document.getElementById('card-result').style.display = '';
           renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
-          isViewMode = true;
-          updateModeUI();
+          updateModeUI();  // isViewMode は変えない（操作モードのまま）
           if (!syncTimerId) syncTimerId = setInterval(syncOperation, 30000);
           toast('📡 運行中のルートを自動表示しています', 'info');
         } catch (e) { console.warn('[同期] スナップショット復元失敗:', e); }
@@ -2636,8 +2635,7 @@ async function checkConfirmedRoute(dateStr) {
     document.getElementById('card-result').style.display = '';
     renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
     updateConfirmButton(true);
-    isViewMode = true;
-    updateModeUI();
+    updateModeUI();  // isViewMode は変えない（操作モードのまま）
 
     if (!syncTimerId) {
       syncOperation();
