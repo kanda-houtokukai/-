@@ -691,11 +691,13 @@
     }
 
     @media (max-width: 430px) {
-      /* ヘッダー全体：overflow:visibleでクリップしない */
+      /* ヘッダー全体：スマホは高さを抑えつつ上下中央揃え */
       .app-header {
-        overflow: visible !important;
-        padding: 4px 12px !important;
+        overflow: hidden !important;
+        height: 48px !important;
+        padding: 0 12px !important;
         justify-content: space-between !important;
+        align-items: center !important;
         width: 100% !important;
         box-sizing: border-box !important;
       }
@@ -703,10 +705,15 @@
       .app-header button#app-title {
         flex-shrink: 1 !important;
         min-width: 0 !important;
+        align-items: center !important;
+      }
+      /* 左のテキスト列も上下中央に */
+      .app-header > div:first-child {
+        justify-content: center !important;
       }
       .title-line1 { font-size: 11px !important; }
       .title-line2 { font-size: 9px !important; }
-      .header-logo { height: 54px !important; }
+      .header-logo { height: 40px !important; }
       /* ヘッダー日付枠 */
       #today-badge {
         flex-shrink: 0 !important;
@@ -2441,11 +2448,44 @@ async function redrawMapRoute(stops) {
     });
     gRenderer.setMap(gMap);
     gRenderer.setDirections(result);
+    // 番号マーカーを再描画（確定後も同様に表示）
+    clearCustomMarkers();
+    const legs = result.routes[0].legs;
+    // 発マーカー（緑）
+    gMarkers.push(new google.maps.Marker({
+      position: legs[0].start_location,
+      map:      gMap,
+      icon:     makeCircleIcon('#34a853', 18),
+      label:    { text: '発', color: '#ffffff', fontWeight: 'bold', fontSize: '14px' },
+      title:    stops[0].label || stops[0].address,
+      zIndex:   300,
+    }));
+    // 経由地マーカー（青・番号）
+    const waypointCount = legs.length - 1;
+    for (let i = 0; i < waypointCount; i++) {
+      gMarkers.push(new google.maps.Marker({
+        position: legs[i].end_location,
+        map:      gMap,
+        icon:     makeCircleIcon('#1a73e8', 16),
+        label:    { text: String(i + 1), color: '#ffffff', fontWeight: 'bold', fontSize: '14px' },
+        title:    stops[i + 1]?.label || stops[i + 1]?.address || String(i + 1),
+        zIndex:   100 + i,
+      }));
+    }
+    // 着マーカー（赤）
+    gMarkers.push(new google.maps.Marker({
+      position: legs[legs.length - 1].end_location,
+      map:      gMap,
+      icon:     makeCircleIcon('#ea4335', 18),
+      label:    { text: '着', color: '#ffffff', fontWeight: 'bold', fontSize: '14px' },
+      title:    stops[stops.length - 1].label || stops[stops.length - 1].address,
+      zIndex:   300,
+    }));
     // スマホ等でマップが正しくレンダリングされるようリサイズをトリガー
     setTimeout(() => {
       google.maps.event.trigger(gMap, 'resize');
       const bounds = new google.maps.LatLngBounds();
-      result.routes[0].legs.forEach(leg => {
+      legs.forEach(leg => {
         bounds.extend(leg.start_location);
         bounds.extend(leg.end_location);
       });
