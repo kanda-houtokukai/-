@@ -47,7 +47,7 @@
       top: 0;
       z-index: 100;
     }
-    .app-header h1 {
+    .app-header button#app-title {
       white-space: nowrap;
       line-height: 1.25;
       display: flex;
@@ -642,7 +642,7 @@
 
     /* ── Responsive ── */
     @media (max-width: 640px) {
-      .app-header h1 { font-size: 19px; }
+      .app-header button#app-title { font-size: 19px; }
       .title-line1 { font-size: 20px; }
       .title-line2 { font-size: 14px; }
       .stats-bar { flex-wrap: wrap; }
@@ -670,7 +670,7 @@
         box-sizing: border-box !important;
       }
       /* h1：縮めてバッジにスペースを渡す */
-      .app-header h1 {
+      .app-header button#app-title {
         flex-shrink: 1 !important;
         min-width: 0 !important;
       }
@@ -780,13 +780,11 @@
 
 <!-- ═══════════════ HEADER ═══════════════ -->
 <header class="app-header no-print">
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-    <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
-  </svg>
-  <h1 id="app-title" title="ホームに戻る" style="cursor:pointer;">
-    <span class="title-line1">送迎ルート</span>
-    <span class="title-line2">最適化システム</span>
-  </h1>
+  <button id="app-title" onclick="location.reload()" title="ホームに戻る"
+    style="background:none;border:none;cursor:pointer;padding:0;color:white;text-align:left;">
+    <div class="title-line1">🚌 送迎ルート</div>
+    <div class="title-line2">最適化システム</div>
+  </button>
   <span class="badge header-right" id="today-badge" style="flex-shrink:0;max-width:45%;overflow:hidden;"></span>
 </header>
 
@@ -1036,10 +1034,6 @@ function setStep(n) {
   });
 })();
 
-// タイトルクリックでホーム（STEP1）に戻る
-document.getElementById('app-title').addEventListener('click', () => {
-  location.reload();
-});
 
 // ─────────────────────────────────────────
 //  Collapsible
