@@ -959,6 +959,7 @@
 
     <div class="card-body" id="route-body" style="display:none;">
       <div id="sync-status" class="sync-status no-print" style="display:none;"></div>
+      <div id="sync-debug" class="no-print" style="font-size:10px;color:var(--gray-600);background:#f8f9fa;border-radius:6px;padding:6px 10px;margin-bottom:8px;word-break:break-all;display:none;"></div>
 
       <div id="arrival-alert" style="margin-bottom:16px;"></div>
       <ul class="route-list" id="route-list"></ul>
@@ -2269,6 +2270,8 @@ function renderStats(route, stops, depart, routeType, arrTimeStr) {
 //  Render route list
 // ─────────────────────────────────────────
 function renderRouteList(stops, routeType, arrTimeStr) {
+  const dbgEl = document.getElementById('sync-debug');
+  if (dbgEl) dbgEl.style.display = '';
   const ul   = document.getElementById('route-list');
   const body = document.getElementById('route-body');
   ul.innerHTML = '';
@@ -2387,48 +2390,57 @@ async function recordDeparture(stopIdx) {
   const today = getToday();
   departureRecords[stopIdx] = hhmm;
   applyDepartureState();
+  const payload = JSON.stringify({ date: today, stopNum: stopIdx, departTime: hhmm });
+  console.log('[出発記録] POST送信:', payload);
   try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: today, stopNum: stopIdx, departTime: hhmm })
-    });
+    // no-cors + application/json はブラウザがブロックするため headers を省略
+    await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
+    console.log('[出発記録] POST完了');
     toast(`地点${stopIdx} 出発 ${hhmm} を記録しました`, 'success');
   } catch (err) {
+    console.error('[出発記録] POST失敗:', err);
     toast('記録の送信に失敗しました', 'error');
   }
 }
 
 async function syncOperation() {
   const today = getToday();
+  const dbgEl = document.getElementById('sync-debug');
   try {
-    const res = await fetch(`${GAS_URL}?date=${today}`);
-    if (!res.ok) return;
+    const url = `${GAS_URL}?date=${today}`;
+    console.log('[同期] GETリクエスト:', url);
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error('[同期] GETエラー:', res.status);
+      if (dbgEl) dbgEl.textContent = `❌ GETエラー: ${res.status}`;
+      return;
+    }
     const records = await res.json();
+    console.log('[同期] GETレスポンス:', JSON.stringify(records));
+    if (dbgEl) dbgEl.textContent = `📥 取得レコード数: ${records.length}　内容: ${JSON.stringify(records).slice(0,200)}`;
     if (!Array.isArray(records)) return;
 
-    // 出発記録を適用
-    records.filter(r => !isNaN(r.stopNum) && r.stopNum >= 0)
-           .forEach(r => { departureRecords[Number(r.stopNum)] = r.departTime; });
+    // 出発記録（stopNum >= 0 のみ）を適用
+    records.filter(r => typeof r.stopNum === 'number' && r.stopNum >= 0)
+           .forEach(r => { departureRecords[r.stopNum] = r.departTime; });
 
-    // スナップショット行（stopNum が NaN = 'snapshot'）からルートを復元
+    // スナップショット行（stopNum === -999）からルートを復元
     if (!gCurrentStops) {
-      const snaps = records.filter(r => isNaN(r.stopNum));
+      const snaps = records.filter(r => r.stopNum === -999);
+      console.log('[同期] スナップショット行数:', snaps.length);
       if (snaps.length > 0) {
         try {
           const data = JSON.parse(snaps[snaps.length - 1].departTime);
-          gCurrentStops   = deserializeStops(data.stops);
+          gCurrentStops      = deserializeStops(data.stops);
           gCurrentRouteType  = data.routeType;
           gCurrentArrTimeStr = data.arrTimeStr;
           document.getElementById('card-result').style.display = '';
           renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
           isViewMode = true;
           updateModeUI();
-          // 自動同期タイマーをここで開始
           if (!syncTimerId) syncTimerId = setInterval(syncOperation, 30000);
           toast('📡 運行中のルートを自動表示しています', 'info');
-        } catch (e) { console.warn('スナップショット復元失敗', e); }
+        } catch (e) { console.warn('[同期] スナップショット復元失敗:', e); }
       }
     }
 
@@ -2437,7 +2449,8 @@ async function syncOperation() {
     const el = document.getElementById('sync-status');
     if (el) { el.textContent = `🔄 最終更新：${now}`; el.style.display = ''; }
   } catch (err) {
-    console.warn('運行同期エラー', err);
+    console.error('[同期] エラー:', err);
+    if (dbgEl) dbgEl.textContent = `❌ 同期エラー: ${err.message}`;
   }
 }
 
@@ -2501,18 +2514,16 @@ function deserializeStops(data) {
 
 // 最適化済みルートを GAS に保存（他端末の閲覧用）
 async function saveRouteSnapshot(stops, routeType, arrTimeStr) {
-  const payload = {
+  const payload = JSON.stringify({
     date:       getToday(),
-    stopNum:    'snapshot',
+    stopNum:    -999,  // スナップショットマーカー（'snapshot'はJSON化でNaN→nullになるため数値を使用）
     departTime: JSON.stringify({ routeType, arrTimeStr, stops: serializeStops(stops) })
-  };
+  });
+  console.log('[スナップショット] POST送信 stops数:', stops.length);
   try {
-    await fetch(GAS_URL, {
-      method: 'POST', mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-  } catch (err) { console.warn('スナップショット保存失敗', err); }
+    await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
+    console.log('[スナップショット] POST完了');
+  } catch (err) { console.warn('[スナップショット] POST失敗:', err); }
 }
 
 // 閲覧モード ⇔ 操作モード 切替
