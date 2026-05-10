@@ -409,6 +409,8 @@
     .depart-time-sub { font-size: 10px; color: var(--success); font-weight: 700; }
     .route-item.departed { opacity: 0.4; transition: opacity .3s; }
     .sync-status { font-size: 11px; color: var(--gray-500); text-align: right; margin-bottom: 6px; }
+    .view-mode .depart-col { display: none !important; }
+    .mode-toggle-btn { font-size: 12px; padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; color: #fff; flex-shrink: 0; }
 
     /* ── Toast ── */
     #toast-container {
@@ -919,9 +921,13 @@
   <!-- STEP 4: 結果カード -->
   <div class="card" id="card-result" style="display:none;">
     <div class="card-header">
-      <div style="display:flex;align-items:center;gap:10px;">
+      <div style="display:flex;align-items:center;gap:10px;width:100%;">
         <div class="step-badge" style="background:var(--success);">4</div>
         <h2 style="font-size:15px;font-weight:700;margin:0;">最適化ルート</h2>
+        <button id="mode-toggle-btn" class="mode-toggle-btn no-print"
+                onclick="toggleMode()" style="margin-left:auto;background:var(--gray-500);display:none;">
+          👁 閲覧モード
+        </button>
       </div>
     </div>
 
@@ -1002,6 +1008,10 @@ let gRenderer = null;
 let gMarkers  = [];   // カスタムマーカー（クリア用）
 let departureRecords = {}; // { stopIdx: 'HH:MM' } 運行記録
 let syncTimerId = null;    // 自動同期タイマー
+let gCurrentStops = null;  // 現在のルート stops（スナップショット用）
+let gCurrentRouteType = null;
+let gCurrentArrTimeStr = null;
+let isViewMode = false;    // 閲覧モード=true / 操作モード=false
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyhGI6v3kfhx0oetWEsKgj_gtcw4A9nwdfKzbCY8O7YD6pFA9rce3py-xKjxzKU_o_eCQ/exec';
 
 const SETTING_KEYS = ['maps-key','sheets-key','sheet-id','sheet-kid','sheet-biz','sheet-att','center-addr'];
@@ -1061,6 +1071,9 @@ function setStep(n) {
   document.querySelectorAll('.collapsible-body').forEach(el => {
     el.style.maxHeight = el.scrollHeight + 'px';
   });
+
+  // ページ読み込み時に当日の運行状況を確認（別端末からの閲覧対応）
+  checkAndRestoreOperation();
 })();
 
 
@@ -1853,7 +1866,13 @@ async function optimizeRoute() {
     optLog('画面に結果を描画中...', 'step');
     document.getElementById('calc-progress').style.display = 'none';
     renderStats(route, stops, depart, routeType, arrTimeStr);
+    gCurrentStops    = stops;
+    gCurrentRouteType   = routeType;
+    gCurrentArrTimeStr  = arrTimeStr;
+    isViewMode = false;
     renderRouteList(stops, routeType, arrTimeStr);
+    updateModeUI();
+    saveRouteSnapshot(stops, routeType, arrTimeStr);
     startOperationSync();
     buildPrintSection(stops, routeType, route, depart, arrTimeStr);
     optLog('完了', 'ok');
@@ -2387,10 +2406,33 @@ async function syncOperation() {
     const res = await fetch(`${GAS_URL}?date=${today}`);
     if (!res.ok) return;
     const records = await res.json();
-    if (Array.isArray(records)) {
-      records.forEach(r => { departureRecords[Number(r.stopNum)] = r.departTime; });
-      applyDepartureState();
+    if (!Array.isArray(records)) return;
+
+    // 出発記録を適用
+    records.filter(r => !isNaN(r.stopNum) && r.stopNum >= 0)
+           .forEach(r => { departureRecords[Number(r.stopNum)] = r.departTime; });
+
+    // スナップショット行（stopNum が NaN = 'snapshot'）からルートを復元
+    if (!gCurrentStops) {
+      const snaps = records.filter(r => isNaN(r.stopNum));
+      if (snaps.length > 0) {
+        try {
+          const data = JSON.parse(snaps[snaps.length - 1].departTime);
+          gCurrentStops   = deserializeStops(data.stops);
+          gCurrentRouteType  = data.routeType;
+          gCurrentArrTimeStr = data.arrTimeStr;
+          document.getElementById('card-result').style.display = '';
+          renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
+          isViewMode = true;
+          updateModeUI();
+          // 自動同期タイマーをここで開始
+          if (!syncTimerId) syncTimerId = setInterval(syncOperation, 30000);
+          toast('📡 運行中のルートを自動表示しています', 'info');
+        } catch (e) { console.warn('スナップショット復元失敗', e); }
+      }
     }
+
+    applyDepartureState();
     const now = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
     const el = document.getElementById('sync-status');
     if (el) { el.textContent = `🔄 最終更新：${now}`; el.style.display = ''; }
@@ -2424,6 +2466,75 @@ function startOperationSync() {
   if (syncTimerId) clearInterval(syncTimerId);
   syncOperation(); // 初回即時
   syncTimerId = setInterval(syncOperation, 30000);
+}
+
+// ページ読み込み時に当日の運行状況を確認（閲覧端末用）
+async function checkAndRestoreOperation() {
+  await syncOperation();
+}
+
+// stops を JSON 保存用にシリアライズ
+function serializeStops(stops) {
+  return stops.map(s => ({
+    label:     s.label,
+    address:   s.address,
+    kind:      s.kind,
+    eta:       s.eta.getTime(),
+    scheduledTime: s.scheduledTime ? s.scheduledTime.getTime() : null,
+    travelMin: s.travelMin  ?? null,
+    dist:      s.dist       ?? null,
+    waitMin:   s.waitMin    ?? null,
+    isDelay:   s.isDelay    || false,
+    boardMin:  s.boardMin   ?? null,
+    children:  (s.children  || []).map(c => ({ name: c.name, phone: c.phone || '' }))
+  }));
+}
+
+// シリアライズ済み stops を Date オブジェクト付きで復元
+function deserializeStops(data) {
+  return data.map(s => ({
+    ...s,
+    eta:           new Date(s.eta),
+    scheduledTime: s.scheduledTime ? new Date(s.scheduledTime) : null
+  }));
+}
+
+// 最適化済みルートを GAS に保存（他端末の閲覧用）
+async function saveRouteSnapshot(stops, routeType, arrTimeStr) {
+  const payload = {
+    date:       getToday(),
+    stopNum:    'snapshot',
+    departTime: JSON.stringify({ routeType, arrTimeStr, stops: serializeStops(stops) })
+  };
+  try {
+    await fetch(GAS_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) { console.warn('スナップショット保存失敗', err); }
+}
+
+// 閲覧モード ⇔ 操作モード 切替
+function toggleMode() {
+  isViewMode = !isViewMode;
+  updateModeUI();
+}
+
+function updateModeUI() {
+  const btn      = document.getElementById('mode-toggle-btn');
+  const routeBody = document.getElementById('route-body');
+  if (!btn) return;
+  btn.style.display = '';
+  if (isViewMode) {
+    btn.textContent = '✏️ 操作モード';
+    btn.style.background = 'var(--gray-500)';
+    routeBody?.classList.add('view-mode');
+  } else {
+    btn.textContent = '👁 閲覧モード';
+    btn.style.background = 'var(--primary)';
+    routeBody?.classList.remove('view-mode');
+  }
 }
 
 // "HH:MM" 文字列を dateRef と同日の Date に変換
