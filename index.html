@@ -849,8 +849,6 @@
       </div>
       <!-- 確定ルート確認ステータス -->
       <div id="date-confirm-status" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:8px;font-size:13px;background:#f1f8e9;color:#33691e;border:1px solid #aed581;"></div>
-      <!-- デバッグ情報（原因特定用） -->
-      <div id="confirm-debug" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:8px;font-size:11px;background:#fafafa;color:#444;border:1px solid #ddd;word-break:break-all;white-space:pre-wrap;font-family:monospace;line-height:1.5;"></div>
 
       <button class="btn btn-primary btn-lg btn-full" id="load-btn" onclick="loadSheets()">
         📊 スプレッドシートを読み込む
@@ -2630,52 +2628,16 @@ async function confirmRoute() {
 
 async function checkConfirmedRoute(dateStr) {
   const today = dateStr || getSelectedDate();
-  const debugEl = document.getElementById('confirm-debug');
-
-  // デバッグ用ログ蓄積
-  const dbgLines = [];
-  const dbg = (...args) => {
-    const line = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
-    dbgLines.push(line);
-    console.log('[確定ルート確認]', ...args);
-  };
-
-  dbg('▶ 問い合わせ日付:', today, '  (format check: YYYY-MM-DD expected)');
-
   try {
-    const url = `${GAS_URL}?date=${today}&confirmed=true`;
-    dbg('▶ GET URL:', url);
-
-    const res = await fetch(url);
-    dbg('▶ HTTPステータス:', res.status, res.ok ? 'OK' : 'NG');
-    if (!res.ok) {
-      if (debugEl) { debugEl.textContent = dbgLines.join('\n'); debugEl.style.display = ''; }
-      return false;
-    }
-
+    const res = await fetch(`${GAS_URL}?date=${today}&confirmed=true`);
+    if (!res.ok) return false;
     const records = await res.json();
-    dbg('▶ レスポンス件数:', Array.isArray(records) ? records.length : 'NOT ARRAY');
-    dbg('▶ レスポンス全体:', records);
+    console.log('[確定ルート確認] date:', today, 'records:', records);
+    if (!Array.isArray(records) || !records.length) return false;
 
-    if (!Array.isArray(records) || !records.length) {
-      dbg('⚠️ 空配列 or 非配列 → 確定ルートなし');
-      if (debugEl) { debugEl.textContent = dbgLines.join('\n'); debugEl.style.display = ''; }
-      return false;
-    }
-
-    // stopNum の型を確認（GASからstringで返ってくる場合も対応）
-    records.forEach((r, i) => {
-      dbg(`  [${i}] stopNum=${r.stopNum} (type:${typeof r.stopNum})  departTime長=${String(r.departTime).length}`);
-    });
-
-    const rec = records.find(r => r.stopNum === -888 || Number(r.stopNum) === -888);
-    if (!rec) {
-      dbg('⚠️ stopNum=-888 の行が見つからない → 確定ルートなし');
-      if (debugEl) { debugEl.textContent = dbgLines.join('\n'); debugEl.style.display = ''; }
-      return false;
-    }
-
-    dbg('✅ 確定ルート行発見:', rec);
+    // GASからstringで返ってくる場合も考慮してNumber()で統一
+    const rec = records.find(r => Number(r.stopNum) === -888);
+    if (!rec) return false;
 
     const data = JSON.parse(rec.departTime);
     gCurrentStops      = deserializeStops(data.stops);
@@ -2688,19 +2650,14 @@ async function checkConfirmedRoute(dateStr) {
     isViewMode = true;
     updateModeUI();
 
-    // 出発記録を同期
     if (!syncTimerId) {
       syncOperation();
       syncTimerId = setInterval(syncOperation, 30000);
     }
     toast('📋 確定済みルートを表示しています', 'info');
-    dbg('✅ 復元完了');
-    if (debugEl) { debugEl.textContent = dbgLines.join('\n'); debugEl.style.display = ''; }
     return true;
   } catch (err) {
-    dbg('❌ 例外:', err.message);
     console.warn('[確定ルート確認] エラー:', err);
-    if (debugEl) { debugEl.textContent = dbgLines.join('\n'); debugEl.style.display = ''; }
     return false;
   }
 }
