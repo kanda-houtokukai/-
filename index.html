@@ -397,16 +397,18 @@
     .stop-name { font-weight: 600; font-size: 15px; }
     .stop-sub  { font-size: 12px; color: var(--gray-600); margin-top: 2px; }
 
-    .stop-time { text-align: right; flex-shrink: 0; }
-    .time-eta  { font-size: 18px; font-weight: 700; color: var(--primary); line-height: 1.1; }
+    /* 右カラム：時刻＋出発ボタンを縦2段に */
+    .right-col  { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .stop-time  { text-align: right; }
+    .time-eta   { font-size: 18px; font-weight: 700; color: var(--primary); line-height: 1.1; }
     .time-label { font-size: 11px; color: var(--gray-600); margin-top: 1px; }
 
     /* ── 運行管理 ── */
-    .depart-col { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .depart-col { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
     .depart-btn { background: var(--primary); color: #fff; border: none; border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
     .depart-btn:hover:not(:disabled) { background: var(--primary-dark); }
     .depart-btn:disabled { background: var(--gray-300); color: var(--gray-600); cursor: default; font-size: 11px; }
-    .depart-time-sub { font-size: 10px; color: var(--success); font-weight: 700; }
+    .depart-time-sub { font-size: 10px; color: var(--success); font-weight: 700; text-align: right; }
     .route-item.departed { opacity: 0.4; transition: opacity .3s; }
     .sync-status { font-size: 11px; color: var(--gray-500); text-align: right; margin-bottom: 6px; }
     .view-mode .depart-btn { display: none !important; }
@@ -2372,6 +2374,10 @@ function renderRouteList(stops, routeType, arrTimeStr) {
     const boardLine = stop.kind === 'child' && stop.boardMin != null
       ? `　<span style="color:var(--gray-600);">🕐 停車 ${stop.boardMin}分</span>` : '';
 
+    const isLastStop = idx === stops.length - 1;
+    const btnLabel   = isLastStop ? '到着' : '出発';
+    const btnArrival = isLastStop ? 'data-is-arrival="1"' : '';
+
     li.dataset.stopIdx = idx;
     li.innerHTML = `
       <div class="stop-circle ${circleClass}">${circleLabel}</div>
@@ -2382,14 +2388,16 @@ function renderRouteList(stops, routeType, arrTimeStr) {
         <div class="stop-sub">📍 ${esc(stop.address)}${boardLine}</div>
         ${childrenHtml}
       </div>
-      <div class="stop-time">
-        <div class="time-eta ${stop.isDelay ? 'over-time' : ''}">${fmt(displayTime)}</div>
-        <div class="time-label">${etaLabel}</div>
-        ${statusBadge}
-      </div>
-      <div class="depart-col no-print">
-        <button class="depart-btn" onclick="recordDeparture(${idx})">出発</button>
-        <span class="depart-time-sub"></span>
+      <div class="right-col">
+        <div class="stop-time">
+          <div class="time-eta ${stop.isDelay ? 'over-time' : ''}">${fmt(displayTime)}</div>
+          <div class="time-label">${etaLabel}</div>
+          ${statusBadge}
+        </div>
+        <div class="depart-col no-print">
+          <button class="depart-btn" ${btnArrival} onclick="recordDeparture(${idx})">${btnLabel}</button>
+          <span class="depart-time-sub"></span>
+        </div>
       </div>`;
     ul.appendChild(li);
   });
@@ -2526,12 +2534,14 @@ function applyDepartureState() {
       li.classList.remove('departed');
     }
     if (departureRecords[idx] !== undefined) {
-      if (btn) { btn.disabled = true; btn.textContent = '✅ 出発済み'; }
+      const isArrival = btn?.dataset.isArrival === '1';
+      const doneLabel = isArrival ? '✅ 到着済み' : '✅ 出発済み';
+      if (btn) { btn.disabled = true; btn.textContent = doneLabel; }
       if (sub) {
         const t = String(departureRecords[idx]);
         const hhmm = /^\d{1,2}:\d{2}$/.test(t) ? t : '';
-        // 閲覧モード（子機）はボタンが非表示のため、ラベルと時刻をまとめて表示
-        sub.textContent = (isViewMode && hhmm) ? `✅ 出発済み ${hhmm}` : hhmm;
+        // 閲覧モード（子機）はボタン非表示のためラベルと時刻をまとめて表示
+        sub.textContent = (isViewMode && hhmm) ? `${doneLabel} ${hhmm}` : hhmm;
         if (isViewMode && hhmm) {
           sub.style.fontSize = '12px';
           sub.style.color = 'var(--success)';
