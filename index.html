@@ -847,6 +847,9 @@
           </select>
         </div>
       </div>
+      <!-- 確定ルート確認ステータス -->
+      <div id="date-confirm-status" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:8px;font-size:13px;background:#f1f8e9;color:#33691e;border:1px solid #aed581;"></div>
+
       <button class="btn btn-primary btn-lg btn-full" id="load-btn" onclick="loadSheets()">
         📊 スプレッドシートを読み込む
       </button>
@@ -1089,7 +1092,8 @@ function setStep(n) {
 
 // ページ読み込み時：確定ルート → スナップショットの順で自動復元
 (async () => {
-  const hasConfirmed = await checkConfirmedRoute();
+  const dateStr = getSelectedDate();
+  const hasConfirmed = await checkConfirmedRoute(dateStr);
   if (!hasConfirmed) await checkAndRestoreOperation();
 })();
 
@@ -1492,9 +1496,13 @@ function isDayMatch(daysStr, dayName) {
 // 送迎日の曜日に基づいて出席を自動設定する
 // days未設定の子は変更しない（欠席にしない）
 function applyDayFilter() {
+  const dateStr = document.getElementById('route-date').value;
+
+  // 日付変更のたびに確定ルートを問い合わせ（子供リスト読込前でも実行）
+  checkAndShowConfirmedRoute(dateStr);
+
   if (!children.length) return;
 
-  const dateStr = document.getElementById('route-date').value;
   const dayName = getDayName(dateStr);
   const noteEl  = document.getElementById('day-filter-note');
 
@@ -2402,9 +2410,14 @@ function getToday() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+function getSelectedDate() {
+  const el = document.getElementById('route-date');
+  return (el && el.value) ? el.value : getToday();
+}
+
 async function recordDeparture(stopIdx) {
   const hhmm  = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-  const today = getToday();
+  const today = getSelectedDate();
   departureRecords[stopIdx] = hhmm;
   applyDepartureState();
   const payload = JSON.stringify({ date: today, stopNum: stopIdx, departTime: hhmm });
@@ -2421,7 +2434,7 @@ async function recordDeparture(stopIdx) {
 }
 
 async function syncOperation() {
-  const today = getToday();
+  const today = getSelectedDate();
   const dbgEl = document.getElementById('sync-debug');
   try {
     const url = `${GAS_URL}?date=${today}`;
@@ -2532,7 +2545,7 @@ function deserializeStops(data) {
 // 最適化済みルートを GAS に保存（他端末の閲覧用）
 async function saveRouteSnapshot(stops, routeType, arrTimeStr) {
   const payload = JSON.stringify({
-    date:       getToday(),
+    date:       getSelectedDate(),
     stopNum:    -999,  // スナップショットマーカー（'snapshot'はJSON化でNaN→nullになるため数値を使用）
     departTime: JSON.stringify({ routeType, arrTimeStr, stops: serializeStops(stops) })
   });
@@ -2593,7 +2606,7 @@ async function confirmRoute() {
   btn.textContent = '保存中…';
 
   const payload = JSON.stringify({
-    date:       getToday(),
+    date:       getSelectedDate(),
     stopNum:    -888,  // 確定ルートマーカー
     departTime: JSON.stringify({
       routeType:  gCurrentRouteType,
@@ -2613,8 +2626,8 @@ async function confirmRoute() {
   }
 }
 
-async function checkConfirmedRoute() {
-  const today = getToday();
+async function checkConfirmedRoute(dateStr) {
+  const today = dateStr || getSelectedDate();
   try {
     const res = await fetch(`${GAS_URL}?date=${today}&confirmed=true`);
     if (!res.ok) return false;
@@ -2647,6 +2660,38 @@ async function checkConfirmedRoute() {
   } catch (err) {
     console.warn('[確定ルート確認] エラー:', err);
     return false;
+  }
+}
+
+// 日付変更時：GAS に確定ルートを問い合わせてSTEP1のステータスに結果を表示
+async function checkAndShowConfirmedRoute(dateStr) {
+  const statusEl = document.getElementById('date-confirm-status');
+  if (!statusEl) return;
+
+  statusEl.style.display = '';
+  statusEl.style.background = '#e3f2fd';
+  statusEl.style.color = '#0d47a1';
+  statusEl.style.borderColor = '#90caf9';
+  statusEl.textContent = '🔍 確定ルートを確認中…';
+
+  // 既存のルート状態をリセット
+  gCurrentStops = null;
+  gCurrentRouteType = null;
+  gCurrentArrTimeStr = null;
+  departureRecords = {};
+  if (syncTimerId) { clearInterval(syncTimerId); syncTimerId = null; }
+
+  const found = await checkConfirmedRoute(dateStr);
+  if (found) {
+    statusEl.style.background = '#f1f8e9';
+    statusEl.style.color = '#33691e';
+    statusEl.style.borderColor = '#aed581';
+    statusEl.textContent = '✅ 確定済みルートを表示しています';
+  } else {
+    statusEl.style.background = '#fff8e1';
+    statusEl.style.color = '#e65100';
+    statusEl.style.borderColor = '#ffcc02';
+    statusEl.textContent = 'まだルートが確定されていません';
   }
 }
 
