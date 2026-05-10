@@ -410,6 +410,10 @@
     .route-item.departed { opacity: 0.4; transition: opacity .3s; }
     .sync-status { font-size: 11px; color: var(--gray-500); text-align: right; margin-bottom: 6px; }
     .view-mode .depart-col { display: none !important; }
+    .confirm-route-btn { padding: 12px 24px; font-size: 15px; font-weight: 700; background: var(--success); color: #fff; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 2px 6px rgba(52,168,83,.4); transition: background .15s; }
+    .confirm-route-btn:hover:not(:disabled) { background: var(--success-dark); }
+    .confirm-route-btn:disabled { background: var(--gray-300); color: var(--gray-600); cursor: default; box-shadow: none; }
+    .confirm-route-btn.confirmed { background: var(--gray-400); cursor: default; }
     .mode-toggle-btn { font-size: 12px; padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; color: #fff; flex-shrink: 0; }
 
     /* ── Toast ── */
@@ -964,8 +968,16 @@
       <div id="arrival-alert" style="margin-bottom:16px;"></div>
       <ul class="route-list" id="route-list"></ul>
 
+      <!-- 確定ボタン -->
+      <div class="no-print" style="margin-top:20px;text-align:center;">
+        <button id="confirm-route-btn" class="confirm-route-btn" onclick="confirmRoute()" style="display:none;">
+          ✅ ルートを確定する
+        </button>
+        <div id="confirm-status" style="font-size:12px;color:var(--gray-600);margin-top:6px;"></div>
+      </div>
+
       <!-- 印刷ボタン（ルート一覧の直下） -->
-      <div class="no-print" style="margin-top:24px;padding-top:20px;border-top:2px solid var(--gray-200);text-align:center;">
+      <div class="no-print" style="margin-top:12px;padding-top:20px;border-top:2px solid var(--gray-200);text-align:center;">
         <button id="print-btn" onclick="(function(){if(gMap){const b=new google.maps.LatLngBounds();gMarkers.forEach(m=>b.extend(m.getPosition()));if(!b.isEmpty())gMap.fitBounds(b,{top:10,right:10,bottom:10,left:10});google.maps.event.trigger(gMap,'resize');setTimeout(()=>window.print(),1000);}else{window.print();}})()"
                 style="display:none;padding:14px 36px;font-size:16px;font-weight:700;
                        background:#f57c00;color:#fff;border:none;border-radius:12px;
@@ -1073,8 +1085,12 @@ function setStep(n) {
     el.style.maxHeight = el.scrollHeight + 'px';
   });
 
-  // ページ読み込み時に当日の運行状況を確認（別端末からの閲覧対応）
-  checkAndRestoreOperation();
+})();
+
+// ページ読み込み時：確定ルート → スナップショットの順で自動復元
+(async () => {
+  const hasConfirmed = await checkConfirmedRoute();
+  if (!hasConfirmed) await checkAndRestoreOperation();
 })();
 
 
@@ -1873,6 +1889,7 @@ async function optimizeRoute() {
     isViewMode = false;
     renderRouteList(stops, routeType, arrTimeStr);
     updateModeUI();
+    updateConfirmButton(false);
     saveRouteSnapshot(stops, routeType, arrTimeStr);
     startOperationSync();
     buildPrintSection(stops, routeType, route, depart, arrTimeStr);
@@ -2545,6 +2562,91 @@ function updateModeUI() {
     btn.textContent = '👁 閲覧モード';
     btn.style.background = 'var(--primary)';
     routeBody?.classList.remove('view-mode');
+  }
+}
+
+// ─────────────────────────────────────────
+//  ルート確定
+// ─────────────────────────────────────────
+function updateConfirmButton(isConfirmed) {
+  const btn    = document.getElementById('confirm-route-btn');
+  const status = document.getElementById('confirm-status');
+  if (!btn) return;
+  btn.style.display = '';
+  if (isConfirmed) {
+    btn.textContent = '✅ 確定済み';
+    btn.disabled = true;
+    btn.classList.add('confirmed');
+    if (status) status.textContent = '他の端末でもこのルートが自動表示されます';
+  } else {
+    btn.textContent = '✅ ルートを確定する';
+    btn.disabled = false;
+    btn.classList.remove('confirmed');
+    if (status) status.textContent = 'このルートを確定すると他の端末で自動表示されます';
+  }
+}
+
+async function confirmRoute() {
+  if (!gCurrentStops) return;
+  const btn = document.getElementById('confirm-route-btn');
+  btn.disabled = true;
+  btn.textContent = '保存中…';
+
+  const payload = JSON.stringify({
+    date:       getToday(),
+    stopNum:    -888,  // 確定ルートマーカー
+    departTime: JSON.stringify({
+      routeType:  gCurrentRouteType,
+      arrTimeStr: gCurrentArrTimeStr,
+      stops:      serializeStops(gCurrentStops)
+    })
+  });
+
+  try {
+    await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
+    updateConfirmButton(true);
+    toast('ルートを確定しました', 'success');
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '✅ ルートを確定する';
+    toast('確定の保存に失敗しました', 'error');
+  }
+}
+
+async function checkConfirmedRoute() {
+  const today = getToday();
+  try {
+    const res = await fetch(`${GAS_URL}?date=${today}&confirmed=true`);
+    if (!res.ok) return false;
+    const records = await res.json();
+    console.log('[確定ルート確認]', records);
+    if (!Array.isArray(records) || !records.length) return false;
+
+    // GASが -888 行を返す（stopNum: -888）
+    const rec = records.find(r => r.stopNum === -888);
+    if (!rec) return false;
+
+    const data = JSON.parse(rec.departTime);
+    gCurrentStops      = deserializeStops(data.stops);
+    gCurrentRouteType  = data.routeType;
+    gCurrentArrTimeStr = data.arrTimeStr;
+
+    document.getElementById('card-result').style.display = '';
+    renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
+    updateConfirmButton(true);
+    isViewMode = true;
+    updateModeUI();
+
+    // 出発記録を同期
+    if (!syncTimerId) {
+      syncOperation();
+      syncTimerId = setInterval(syncOperation, 30000);
+    }
+    toast('📋 確定済みルートを表示しています', 'info');
+    return true;
+  } catch (err) {
+    console.warn('[確定ルート確認] エラー:', err);
+    return false;
   }
 }
 
