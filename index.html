@@ -966,7 +966,6 @@
 
     <div class="card-body" id="route-body" style="display:none;">
       <div id="sync-status" class="sync-status no-print" style="display:none;"></div>
-      <div id="sync-debug" class="no-print" style="font-size:10px;color:var(--gray-600);background:#f8f9fa;border-radius:6px;padding:6px 10px;margin-bottom:8px;word-break:break-all;display:none;"></div>
 
       <div id="arrival-alert" style="margin-bottom:16px;"></div>
       <ul class="route-list" id="route-list"></ul>
@@ -2295,8 +2294,6 @@ function renderStats(route, stops, depart, routeType, arrTimeStr) {
 //  Render route list
 // ─────────────────────────────────────────
 function renderRouteList(stops, routeType, arrTimeStr) {
-  const dbgEl = document.getElementById('sync-debug');
-  if (dbgEl) dbgEl.style.display = '';
   const ul   = document.getElementById('route-list');
   const body = document.getElementById('route-body');
   ul.innerHTML = '';
@@ -2435,29 +2432,22 @@ async function recordDeparture(stopIdx) {
 
 async function syncOperation() {
   const today = getSelectedDate();
-  const dbgEl = document.getElementById('sync-debug');
   try {
     const url = `${GAS_URL}?date=${today}`;
     console.log('[同期] GETリクエスト:', url);
     const res = await fetch(url);
-    if (!res.ok) {
-      console.error('[同期] GETエラー:', res.status);
-      if (dbgEl) dbgEl.textContent = `❌ GETエラー: ${res.status}`;
-      return;
-    }
+    if (!res.ok) { console.error('[同期] GETエラー:', res.status); return; }
     const records = await res.json();
     console.log('[同期] GETレスポンス:', JSON.stringify(records));
-    if (dbgEl) dbgEl.textContent = `📥 取得レコード数: ${records.length}　内容: ${JSON.stringify(records).slice(0,200)}`;
     if (!Array.isArray(records)) return;
 
     // 出発記録（stopNum >= 0 のみ）を適用
-    records.filter(r => typeof r.stopNum === 'number' && r.stopNum >= 0)
-           .forEach(r => { departureRecords[r.stopNum] = r.departTime; });
+    records.filter(r => Number(r.stopNum) >= 0)
+           .forEach(r => { departureRecords[Number(r.stopNum)] = r.departTime; });
 
     // スナップショット行（stopNum === -999）からルートを復元
     if (!gCurrentStops) {
-      const snaps = records.filter(r => r.stopNum === -999);
-      console.log('[同期] スナップショット行数:', snaps.length);
+      const snaps = records.filter(r => Number(r.stopNum) === -999);
       if (snaps.length > 0) {
         try {
           const data = JSON.parse(snaps[snaps.length - 1].departTime);
@@ -2480,7 +2470,6 @@ async function syncOperation() {
     if (el) { el.textContent = `🔄 最終更新：${now}`; el.style.display = ''; }
   } catch (err) {
     console.error('[同期] エラー:', err);
-    if (dbgEl) dbgEl.textContent = `❌ 同期エラー: ${err.message}`;
   }
 }
 
