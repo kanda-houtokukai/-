@@ -753,6 +753,19 @@
         /* overflow: hidden は iOS ネイティブUIを切り取るため使用しない */
       }
     }
+
+    /* Safari の独自レンダリングを無効化してはみ出しを防止 */
+    input[type="date"],
+    input[type="time"] {
+      -webkit-appearance: none !important;
+      appearance: none !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
+      display: block !important;
+      text-align: left !important;
+    }
   </style>
 </head>
 <body>
