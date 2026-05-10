@@ -2107,7 +2107,7 @@ function buildPrintSection(stops, routeType, route, depart, arrTimeStr) {
     }
     const names = stop.children?.map(c => esc(c.name)).join('<br>') ?? esc(stop.label);
     return `<tr>
-      <td style="text-align:center;font-size:14pt;">${CIRCLED_NUMS[i] ?? String(i + 1)}</td>
+      <td style="text-align:center;font-size:14pt;">${String(i + 1)}</td>
       <td><strong>${esc(stop.label)}</strong></td>
       <td style="font-size:9pt;color:#444;">${esc(stop.address)}</td>
       <td style="text-align:center;">${schStr}</td>
@@ -2399,7 +2399,7 @@ async function calcRecommendedDeparture() {
 
     const stopLabel  = firstGroup.stopName || firstGroup.children.map(c => c.name).join('・');
     const groupIdx   = groups.indexOf(firstGroup);
-    const circled    = CIRCLED_NUMS[groupIdx] ?? String(groupIdx + 1);
+    const circled    = String(groupIdx + 1);
     const schDisplay = firstGroup.stopTime.normalize('NFKC').trim().slice(0, 5);
 
     recEl.innerHTML = `
