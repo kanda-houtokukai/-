@@ -2528,7 +2528,7 @@ function applyDepartureState() {
     const idx  = parseInt(li.dataset.stopIdx);
     const btn  = li.querySelector('.depart-btn');
     const sub  = li.querySelector('.depart-time-sub');
-    if (idx < maxDeparted) {
+    if (idx <= maxDeparted) {
       li.classList.add('departed');
     } else {
       li.classList.remove('departed');
