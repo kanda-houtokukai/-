@@ -409,8 +409,6 @@
     .depart-time-sub { font-size: 10px; color: var(--success); font-weight: 700; }
     .route-item.departed { opacity: 0.4; transition: opacity .3s; }
     .sync-status { font-size: 11px; color: var(--gray-500); text-align: right; margin-bottom: 6px; }
-    .gas-setup { background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 12px; }
-    .gas-setup input { width: 100%; margin-top: 6px; padding: 6px 10px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 12px; box-sizing: border-box; }
 
     /* ── Toast ── */
     #toast-container {
@@ -954,12 +952,6 @@
     <div class="stats-bar" id="stats-bar" style="display:none;"></div>
 
     <div class="card-body" id="route-body" style="display:none;">
-      <!-- 運行管理設定 -->
-      <div class="gas-setup no-print" id="gas-setup-area">
-        📡 <strong>リアルタイム運行管理</strong>　GAS Web App URL を設定すると複数端末で同期できます
-        <input type="text" id="gas-url-visible" placeholder="https://script.google.com/macros/s/.../exec"
-               oninput="document.getElementById('gas-url').value=this.value;saveSettings();">
-      </div>
       <div id="sync-status" class="sync-status no-print" style="display:none;"></div>
 
       <div id="arrival-alert" style="margin-bottom:16px;"></div>
@@ -989,7 +981,6 @@
     <input type="text"     id="sheet-biz"  value="事業所情報シート">
     <input type="text"     id="sheet-att"  value="当日出欠シート">
     <input type="text"     id="center-addr">
-    <input type="text"     id="gas-url">
     <input type="time"     id="arrival-time" value="09:50">
     <input type="number"   id="stop-min"    value="3" min="0" max="15">
     <input type="text"     id="test-origin" value="福岡県田川郡福智町赤池240-4">
@@ -1011,8 +1002,9 @@ let gRenderer = null;
 let gMarkers  = [];   // カスタムマーカー（クリア用）
 let departureRecords = {}; // { stopIdx: 'HH:MM' } 運行記録
 let syncTimerId = null;    // 自動同期タイマー
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyhGI6v3kfhx0oetWEsKgj_gtcw4A9nwdfKzbCY8O7YD6pFA9rce3py-xKjxzKU_o_eCQ/exec';
 
-const SETTING_KEYS = ['maps-key','sheets-key','sheet-id','sheet-kid','sheet-biz','sheet-att','center-addr','gas-url'];
+const SETTING_KEYS = ['maps-key','sheets-key','sheet-id','sheet-kid','sheet-biz','sheet-att','center-addr'];
 
 // デフォルト値（起動時に自動入力。入力欄で上書き可能）
 const DEFAULTS = {
@@ -1065,12 +1057,6 @@ function setStep(n) {
     // storage に値があればそちらを優先、なければデフォルト値を使用
     el.value = storage[id] || DEFAULTS[id] || '';
   });
-  // GAS URLを表示用入力欄にも反映
-  const gasVal = document.getElementById('gas-url')?.value;
-  if (gasVal) {
-    const vis = document.getElementById('gas-url-visible');
-    if (vis) vis.value = gasVal;
-  }
 
   document.querySelectorAll('.collapsible-body').forEach(el => {
     el.style.maxHeight = el.scrollHeight + 'px';
@@ -2378,18 +2364,12 @@ function getToday() {
 }
 
 async function recordDeparture(stopIdx) {
-  const gasUrl = document.getElementById('gas-url').value.trim();
-  if (!gasUrl) {
-    toast('GAS Web App URLを上の入力欄に設定してください', 'error');
-    document.getElementById('gas-url-visible').focus();
-    return;
-  }
   const hhmm  = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
   const today = getToday();
   departureRecords[stopIdx] = hhmm;
   applyDepartureState();
   try {
-    await fetch(gasUrl, {
+    await fetch(GAS_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
@@ -2402,11 +2382,9 @@ async function recordDeparture(stopIdx) {
 }
 
 async function syncOperation() {
-  const gasUrl = document.getElementById('gas-url').value.trim();
-  if (!gasUrl) return;
   const today = getToday();
   try {
-    const res = await fetch(`${gasUrl}?date=${today}`);
+    const res = await fetch(`${GAS_URL}?date=${today}`);
     if (!res.ok) return;
     const records = await res.json();
     if (Array.isArray(records)) {
@@ -2444,9 +2422,6 @@ function applyDepartureState() {
 function startOperationSync() {
   departureRecords = {};
   if (syncTimerId) clearInterval(syncTimerId);
-  // GAS URL が設定されている場合のみ同期を開始
-  const gasUrl = document.getElementById('gas-url').value.trim();
-  if (!gasUrl) return;
   syncOperation(); // 初回即時
   syncTimerId = setInterval(syncOperation, 30000);
 }
