@@ -41,7 +41,9 @@
     .app-header {
       background: var(--primary);
       color: #fff;
-      padding: 10px 20px;
+      padding: 4px 20px;
+      height: 64px;
+      box-sizing: border-box;
       display: flex;
       align-items: center;
       gap: 10px;
@@ -69,7 +71,7 @@
       letter-spacing: 0.5px;
     }
     .header-logo {
-      height: 132px !important;
+      height: 56px !important;
       width: auto;
       display: block;
     }
@@ -672,7 +674,7 @@
       .app-header button#app-title { font-size: 19px; }
       .title-line1 { font-size: 12px; }
       .title-line2 { font-size: 10px; }
-      .header-logo { height: 108px !important; }
+      .header-logo { height: 56px !important; }
       .stats-bar { flex-wrap: wrap; }
       .stat-item { min-width: 50%; border-right: 1px solid var(--gray-200); }
       .form-grid { grid-template-columns: 1fr; }
@@ -692,7 +694,7 @@
       /* ヘッダー全体：overflow:visibleでクリップしない */
       .app-header {
         overflow: visible !important;
-        padding: 8px 12px !important;
+        padding: 4px 12px !important;
         justify-content: space-between !important;
         width: 100% !important;
         box-sizing: border-box !important;
@@ -704,7 +706,7 @@
       }
       .title-line1 { font-size: 11px !important; }
       .title-line2 { font-size: 9px !important; }
-      .header-logo { height: 96px !important; }
+      .header-logo { height: 54px !important; }
       /* ヘッダー日付枠 */
       #today-badge {
         flex-shrink: 0 !important;
