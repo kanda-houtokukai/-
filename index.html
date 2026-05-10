@@ -2372,7 +2372,7 @@ function renderRouteList(stops, routeType, arrTimeStr) {
     }
 
     const boardLine = stop.kind === 'child' && stop.boardMin != null
-      ? `　<span style="color:var(--gray-600);">🕐 停車 ${stop.boardMin}分</span>` : '';
+      ? `<div style="font-size:12px;color:var(--gray-600);margin-top:2px;">🕐 停車 ${stop.boardMin}分</div>` : '';
 
     const isLastStop = idx === stops.length - 1;
     const btnLabel   = isLastStop ? '到着' : '出発';
@@ -2385,7 +2385,8 @@ function renderRouteList(stops, routeType, arrTimeStr) {
         <div class="stop-name">
           ${action ? `<span style="font-size:11px;font-weight:700;color:var(--success);background:#e6f4ea;padding:1px 7px;border-radius:10px;margin-right:6px;">${action}</span>` : ''}${esc(stop.label)}
         </div>
-        <div class="stop-sub">📍 ${esc(stop.address)}${boardLine}</div>
+        <div class="stop-sub">📍 ${esc(stop.address)}</div>
+        ${boardLine}
         ${childrenHtml}
       </div>
       <div class="right-col">
