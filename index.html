@@ -75,24 +75,31 @@
       display: block;
     }
     .app-header .badge {
-      justify-self: end;
+      justify-self: stretch;
       font-size: 8px;
       line-height: 1.4;
-      text-align: right;
+      text-align: left;
       min-width: 0;
+      overflow: hidden;
     }
     .date-badge {
-      display: inline-block;
+      display: block;
       background: rgba(255,255,255,.2);
       border: 1px solid rgba(255,255,255,.5);
       border-radius: 8px;
       padding: 1px 6px;
+      box-sizing: border-box;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
       white-space: nowrap;
     }
     .org-name {
       font-size: 6px;
       opacity: 0.9;
       margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
@@ -815,7 +822,7 @@
     <img src="logo.png" alt="つながるーど" class="header-logo">
   </button>
   <!-- 右：日付バッジ -->
-  <span class="badge header-right" id="today-badge" style="flex-shrink:0;max-width:38%;overflow:hidden;"></span>
+  <span class="badge header-right" id="today-badge"></span>
 </header>
 
 <div id="toast-container"></div>
