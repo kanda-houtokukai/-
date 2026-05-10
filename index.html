@@ -2402,8 +2402,12 @@ function fmt(date) {
 // GASから復元したルートの地図を再描画
 async function redrawMapRoute(stops) {
   if (!stops || stops.length < 2) return;
-  if (!mapsReady) return;
   try {
+    if (!mapsReady) {
+      const key = document.getElementById('maps-key').value.trim();
+      if (!key) return;
+      await loadMapsAPI(key);
+    }
     ensureMap();
     const origin      = stops[0].address;
     const destination = stops[stops.length - 1].address;
@@ -2513,10 +2517,16 @@ function applyDepartureState() {
     }
     if (departureRecords[idx] !== undefined) {
       if (btn) { btn.disabled = true; btn.textContent = '✅ 出発済み'; }
-      // GASのDate自動変換対策: "HH:MM"形式以外は非表示
       if (sub) {
         const t = String(departureRecords[idx]);
-        sub.textContent = /^\d{1,2}:\d{2}$/.test(t) ? t : '';
+        const hhmm = /^\d{1,2}:\d{2}$/.test(t) ? t : '';
+        // 閲覧モード（子機）はボタンが非表示のため、ラベルと時刻をまとめて表示
+        sub.textContent = (isViewMode && hhmm) ? `✅ 出発済み ${hhmm}` : hhmm;
+        if (isViewMode && hhmm) {
+          sub.style.fontSize = '12px';
+          sub.style.color = 'var(--success)';
+          sub.style.fontWeight = '700';
+        }
       }
     }
   });
