@@ -1198,7 +1198,7 @@ function ensureMap() {
     streetViewControl: false,
     fullscreenControl: true,
   });
-  gRenderer = new google.maps.DirectionsRenderer({ map: gMap, suppressMarkers: true });
+  gRenderer = new google.maps.DirectionsRenderer({ map: gMap, suppressMarkers: true, preserveViewport: true });
 }
 
 // ─────────────────────────────────────────
@@ -1838,6 +1838,13 @@ async function optimizeRoute() {
     gRenderer.setMap(gMap);
     gRenderer.setDirections(result);
     addVisitOrderMarkers(ordered, legs);
+    // マーカー位置のみでfitBounds（ルートパス全体より締まったズームになる）
+    setTimeout(() => {
+      google.maps.event.trigger(gMap, 'resize');
+      const b = new google.maps.LatLngBounds();
+      legs.forEach(leg => { b.extend(leg.start_location); b.extend(leg.end_location); });
+      if (!b.isEmpty()) gMap.fitBounds(b, 30);
+    }, 300);
 
     // ── STEP 6: 到着予定時刻の計算 ───────────────
     optLog('到着予定時刻を計算中...', 'step');
@@ -2489,7 +2496,7 @@ async function redrawMapRoute(stops) {
         bounds.extend(leg.start_location);
         bounds.extend(leg.end_location);
       });
-      if (!bounds.isEmpty()) gMap.fitBounds(bounds);
+      if (!bounds.isEmpty()) gMap.fitBounds(bounds, 30);
     }, 300);
   } catch (e) {
     console.warn('[地図再描画] エラー:', e);
