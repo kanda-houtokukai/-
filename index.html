@@ -2422,6 +2422,16 @@ async function redrawMapRoute(stops) {
     });
     gRenderer.setMap(gMap);
     gRenderer.setDirections(result);
+    // スマホ等でマップが正しくレンダリングされるようリサイズをトリガー
+    setTimeout(() => {
+      google.maps.event.trigger(gMap, 'resize');
+      const bounds = new google.maps.LatLngBounds();
+      result.routes[0].legs.forEach(leg => {
+        bounds.extend(leg.start_location);
+        bounds.extend(leg.end_location);
+      });
+      if (!bounds.isEmpty()) gMap.fitBounds(bounds);
+    }, 300);
   } catch (e) {
     console.warn('[地図再描画] エラー:', e);
   }
@@ -2483,7 +2493,7 @@ async function syncOperation() {
           gCurrentRouteType  = data.routeType;
           gCurrentArrTimeStr = data.arrTimeStr;
           document.getElementById('card-result').style.display = '';
-          if (!sessionStorage.getItem('parentSession')) isViewMode = true;
+          if (!localStorage.getItem('parentDevice')) isViewMode = true;
           renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
           updateModeUI();
           redrawMapRoute(gCurrentStops);
@@ -2645,7 +2655,7 @@ async function confirmRoute() {
 
   try {
     await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
-    sessionStorage.setItem('parentSession', '1');  // この端末が親端末であることを記録
+    localStorage.setItem('parentDevice', '1');  // この端末が親端末であることを記録
     updateConfirmButton(true);
     toast('ルートを確定しました', 'success');
   } catch (err) {
@@ -2674,7 +2684,7 @@ async function checkConfirmedRoute(dateStr) {
     gCurrentArrTimeStr = data.arrTimeStr;
 
     // 親端末以外（sessionStorageにフラグなし）は自動的に閲覧モードに
-    if (!sessionStorage.getItem('parentSession')) {
+    if (!localStorage.getItem('parentDevice')) {
       isViewMode = true;
     }
 
