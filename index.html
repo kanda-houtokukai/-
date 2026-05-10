@@ -1136,9 +1136,7 @@ function ensureMap() {
 //  カスタムマーカー（発/着 + ①②③ 番号）
 // ─────────────────────────────────────────
 
-// ①②③…⑳ の Unicode 丸数字（ルートリスト用）
-const CIRCLED_NUMS = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩',
-                      '⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
+// 丸数字は使用せず通常の数字を使用
 
 // google.maps.SymbolPath.CIRCLE + label で確実に番号を表示するアイコン
 function makeCircleIcon(color, scale = 16) {
@@ -2280,7 +2278,7 @@ function renderRouteList(stops, routeType, arrTimeStr) {
       circleClass = 'dest'; circleLabel = '着';
     } else {
       circleClass = 'child';
-      circleLabel = CIRCLED_NUMS[idx - 1] ?? String(idx);  // ①②③…
+      circleLabel = String(idx);  // 通常の数字
     }
 
     const action   = stop.kind === 'child'
