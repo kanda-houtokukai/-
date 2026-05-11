@@ -440,6 +440,9 @@
     /* 欠席ボタン */
     .absence-btn { background: #ef5350; color: #fff; border: none; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; margin-left: 6px; vertical-align: middle; }
     .absence-btn:disabled { background: var(--gray-300); color: var(--gray-600); cursor: default; }
+    .absence-reason-btn { width: 100%; padding: 10px 14px; background: #fff3e0; color: #bf360c; border: 1px solid #ffcc80; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
+    .absence-reason-btn:hover { background: #ffe0b2; }
+    .absence-reason-tag { display: inline-block; font-size: 10px; color: #c62828; background: #ffebee; border: 1px solid #ef9a9a; border-radius: 4px; padding: 0px 5px; margin-left: 5px; vertical-align: middle; }
     /* 帰着ボタン */
     .finalize-btn { padding: 12px 24px; font-size: 15px; font-weight: 700; background: #e53935; color: #fff; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 2px 6px rgba(229,57,53,.4); }
     .finalize-btn:hover:not(:disabled) { background: #b71c1c; }
@@ -883,8 +886,8 @@
         <div class="form-group">
           <label>種別</label>
           <select id="route-type" class="input-lg">
-            <option value="pickup">🌅 朝の送迎（お迎え → センター）</option>
-            <option value="dropoff">🌇 夕の送迎（センター → 自宅）</option>
+            <option value="pickup">アンパンマン号</option>
+            <option value="dropoff">ドラえもん号</option>
           </select>
         </div>
       </div>
@@ -1062,6 +1065,21 @@
 
 </main>
 
+<!-- 欠席理由選択モーダル -->
+<div id="absence-reason-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10001;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:20px 20px 16px;max-width:300px;width:88%;box-shadow:0 8px 32px rgba(0,0,0,0.25);">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px;color:#333;">欠席理由を選択</div>
+    <div id="absence-modal-name" style="font-size:13px;color:#c62828;font-weight:600;margin-bottom:14px;"></div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button class="absence-reason-btn" onclick="confirmAbsence('体調不良')">① 体調不良</button>
+      <button class="absence-reason-btn" onclick="confirmAbsence('用事')">② 用事</button>
+      <button class="absence-reason-btn" onclick="confirmAbsence('家族送迎')">③ 家族送迎</button>
+      <button class="absence-reason-btn" onclick="confirmAbsence('その他')">④ その他</button>
+    </div>
+    <button onclick="cancelAbsence()" style="width:100%;margin-top:12px;padding:8px;background:#f5f5f5;color:#666;border:none;border-radius:8px;font-size:13px;cursor:pointer;">キャンセル</button>
+  </div>
+</div>
+
 <!-- 固定モード切替ボタン -->
 <button id="mode-toggle-btn" onclick="toggleMode()">きらりに切替</button>
 
@@ -1084,7 +1102,9 @@ let gCurrentArrTimeStr = null;
 let isKirariMode = false;  // false=添乗者モード, true=きらりモード
 let isFinalized  = false;  // 帰着確定済み
 let isShared     = false;  // 出発・共有開始済み
-let absenceRecords = {};   // { "stopIdx_personName": true }
+let absenceRecords = {};   // { "stopIdx_personName": reason_string }
+let _pendingAbsenceStopIdx = null;
+let _pendingAbsenceName    = null;
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyhGI6v3kfhx0oetWEsKgj_gtcw4A9nwdfKzbCY8O7YD6pFA9rce3py-xKjxzKU_o_eCQ/exec';
 
 const SETTING_KEYS = ['maps-key','sheets-key','sheet-id','sheet-kid','sheet-biz','sheet-att','center-addr'];
@@ -2436,7 +2456,8 @@ function renderRouteList(stops, routeType, arrTimeStr) {
         const absent = absenceRecords[absKey];
         const absBtnId = `abs-btn-${idx}-${c.name.replace(/[^a-zA-Z0-9]/g,'_')}`;
         const absBtn = `<button class="absence-btn" id="${absBtnId}" onclick="recordAbsence(${idx},'${esc(c.name).replace(/'/g,'&#39;')}')" ${absent ? 'disabled' : ''}>${absent ? '欠席済み' : '欠席'}</button>`;
-        return `<div class="child-row ${absent ? 'absent-child' : ''}" data-child-key="${idx}_${c.name}" style="font-size:12px;margin-top:3px;">🧒 <strong>${esc(c.name)}</strong>${phone}${absBtn}</div>`;
+        const reasonTag = absent ? `<span class="absence-reason-tag">${esc(absent)}</span>` : '';
+        return `<div class="child-row ${absent ? 'absent-child' : ''}" data-child-key="${idx}_${c.name}" style="font-size:12px;margin-top:3px;">🧒 <strong>${esc(c.name)}</strong>${reasonTag}${phone}${absBtn}</div>`;
       }).join('');
     }
 
@@ -2608,7 +2629,7 @@ async function syncOperation() {
       try {
         const d = JSON.parse(r.departTime);
         if (d.personName !== undefined && d.stopIdx !== undefined) {
-          absenceRecords[`${d.stopIdx}_${d.personName}`] = true;
+          absenceRecords[`${d.stopIdx}_${d.personName}`] = d.reason || 'その他';
         }
       } catch(e) {}
     });
@@ -2875,23 +2896,45 @@ function updateFinalizeButton() {
   }
 }
 
-// 欠席記録
-async function recordAbsence(stopIdx, personName) {
+// 欠席記録 - モーダルを開く
+function recordAbsence(stopIdx, personName) {
+  _pendingAbsenceStopIdx = stopIdx;
+  _pendingAbsenceName    = personName;
+  const modal = document.getElementById('absence-reason-modal');
+  document.getElementById('absence-modal-name').textContent = personName;
+  modal.style.display = 'flex';
+}
+
+// 欠席理由確定
+async function confirmAbsence(reason) {
+  const stopIdx    = _pendingAbsenceStopIdx;
+  const personName = _pendingAbsenceName;
+  _pendingAbsenceStopIdx = null;
+  _pendingAbsenceName    = null;
+  document.getElementById('absence-reason-modal').style.display = 'none';
+
   const key = `${stopIdx}_${personName}`;
-  absenceRecords[key] = true;
+  absenceRecords[key] = reason;
   applyAbsenceState();
   updateAbsenceBanner();
   const payload = JSON.stringify({
     date: getSelectedDate(),
     stopNum: -777,
-    departTime: JSON.stringify({ stopIdx, personName })
+    departTime: JSON.stringify({ stopIdx, personName, reason })
   });
   try {
     await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
-    toast(`${personName}を欠席登録しました`, 'info');
+    toast(`${personName}を欠席登録しました（${reason}）`, 'info');
   } catch(e) {
     console.warn('欠席登録失敗:', e);
   }
+}
+
+// 欠席モーダルキャンセル
+function cancelAbsence() {
+  _pendingAbsenceStopIdx = null;
+  _pendingAbsenceName    = null;
+  document.getElementById('absence-reason-modal').style.display = 'none';
 }
 
 // 欠席状態をUIに反映
@@ -2907,9 +2950,18 @@ function applyAbsenceState() {
       const row = li.querySelector(`.child-row[data-child-key="${key}"]`);
       if (!row) return;
       const btn = row.querySelector('.absence-btn');
-      if (absenceRecords[key]) {
+      const reason = absenceRecords[key];
+      if (reason) {
         row.classList.add('absent-child');
         if (btn) { btn.disabled = true; btn.textContent = '欠席済み'; }
+        let tag = row.querySelector('.absence-reason-tag');
+        if (!tag) {
+          tag = document.createElement('span');
+          tag.className = 'absence-reason-tag';
+          const nameEl = row.querySelector('strong');
+          if (nameEl) nameEl.after(tag);
+        }
+        tag.textContent = reason;
       }
     });
     // 全員欠席なら停車地全体を薄く
@@ -2930,7 +2982,8 @@ function updateAbsenceBanner() {
     const stopIdx = parseInt(key.substring(0, sep));
     const name = key.substring(sep + 1);
     const stop = gCurrentStops?.[stopIdx];
-    return `${name}（${stop?.label || `停車${stopIdx}`}）`;
+    const reason = absenceRecords[key];
+    return `${name}（${stop?.label || `停車${stopIdx}`}・${reason}）`;
   });
   banner.innerHTML = `⚠️ 欠席：${items.join('・')}`;
   banner.style.display = '';
@@ -3117,7 +3170,7 @@ async function calcRecommendedDeparture() {
         </div>
         <button class="btn btn-success btn-sm"
                 onclick="adoptRecommendedDeparture('${recStr}')">
-          ✅ 採用
+          ✅ この時刻を採用
         </button>
       </div>`;
 
