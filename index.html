@@ -464,9 +464,9 @@
     body.finalized #finalize-area { display: none !important; }
     /* 添乗者モードのみ共有開始ボタン表示 */
     body.kirari-mode .confirm-route-btn { display: none !important; }
-    /* 共有開始前はボタンを無効化 */
-    body.not-shared .depart-btn:not(:disabled) { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
-    body.not-shared .absence-btn:not(:disabled) { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+    /* 共有開始前はボタンを非表示 */
+    body.not-shared .depart-btn { display: none !important; }
+    body.not-shared .absence-btn { display: none !important; }
     /* 固定モード切替ボタン */
     #mode-toggle-btn { position: fixed; bottom: 20px; right: 20px; z-index: 9999; border-radius: 50px; padding: 12px 20px; font-size: 13px; font-weight: bold; border: none; cursor: pointer; color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.2; text-align: center; }
     #mode-toggle-btn .btn-sub { font-size: 10px; font-weight: 500; display: block; opacity: 0.9; margin-top: 2px; }
