@@ -451,6 +451,11 @@
     /* 帰着確定：操作ボタン非表示 */
     body.finalized .confirm-route-btn { display: none !important; }
     body.finalized #finalize-area { display: none !important; }
+    /* 添乗者モードのみ共有開始ボタン表示 */
+    body.kirari-mode .confirm-route-btn { display: none !important; }
+    /* 共有開始前はボタンを無効化 */
+    body.not-shared .depart-btn:not(:disabled) { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+    body.not-shared .absence-btn:not(:disabled) { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
     /* 固定モード切替ボタン */
     #mode-toggle-btn { position: fixed; bottom: 20px; right: 20px; z-index: 9999; border-radius: 50px; padding: 12px 20px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
 
@@ -887,7 +892,7 @@
       <div id="date-confirm-status" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:8px;font-size:13px;background:#f1f8e9;color:#33691e;border:1px solid #aed581;"></div>
 
       <button class="btn btn-primary btn-lg btn-full" id="load-btn" onclick="loadSheets()">
-        📊 スプレッドシートを読み込む
+        👥 利用者を読み込む
       </button>
     </div>
   </div>
@@ -1078,6 +1083,7 @@ let gCurrentRouteType = null;
 let gCurrentArrTimeStr = null;
 let isKirariMode = false;  // false=添乗者モード, true=きらりモード
 let isFinalized  = false;  // 帰着確定済み
+let isShared     = false;  // 出発・共有開始済み
 let absenceRecords = {};   // { "stopIdx_personName": true }
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyhGI6v3kfhx0oetWEsKgj_gtcw4A9nwdfKzbCY8O7YD6pFA9rce3py-xKjxzKU_o_eCQ/exec';
 
@@ -1462,7 +1468,7 @@ async function loadSheets() {
     document.getElementById('sheet-load-status').textContent = '';
     console.error(e);
   } finally {
-    setLoading('load-btn', false, '📊 スプレッドシートを読み込む');
+    setLoading('load-btn', false, '👥 利用者を読み込む');
   }
 }
 
@@ -1953,6 +1959,8 @@ async function optimizeRoute() {
     gCurrentRouteType   = routeType;
     gCurrentArrTimeStr  = arrTimeStr;
     isKirariMode = false;
+    isShared = false;
+    document.body.classList.add('not-shared');
     renderRouteList(stops, routeType, arrTimeStr);
     updateModeUI();
     updateConfirmButton(false);
@@ -2618,6 +2626,8 @@ async function syncOperation() {
           gCurrentArrTimeStr = data.arrTimeStr;
           document.getElementById('card-result').style.display = '';
           if (!localStorage.getItem('parentDevice')) isKirariMode = true;
+          // スナップショットは共有前の状態（-888が別途ある場合はcheckConfirmedRouteで上書き）
+          if (!isShared) document.body.classList.add('not-shared');
           renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
           updateModeUI();
           redrawMapRoute(gCurrentStops);
@@ -2646,6 +2656,10 @@ function applyDepartureState() {
     const sub  = li.querySelector('.depart-time-sub');
     if (idx <= maxDeparted) {
       li.classList.add('departed');
+      // 通過済み地点の欠席ボタンも無効化
+      li.querySelectorAll('.absence-btn:not(:disabled)').forEach(ab => {
+        ab.disabled = true; ab.style.pointerEvents = 'none';
+      });
     } else {
       li.classList.remove('departed');
     }
@@ -2790,6 +2804,8 @@ async function confirmRoute() {
     await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
     localStorage.setItem('parentDevice', '1');  // この端末が親端末であることを記録
     isKirariMode = false;  // 添乗者モードにセット
+    isShared = true;
+    document.body.classList.remove('not-shared');
     updateConfirmButton(true);
     updateModeUI();
     toast('🚀 出発・共有を開始しました', 'success');
@@ -2938,6 +2954,10 @@ async function checkConfirmedRoute(dateStr) {
     gCurrentRouteType  = data.routeType;
     gCurrentArrTimeStr = data.arrTimeStr;
 
+    // 共有済み
+    isShared = true;
+    document.body.classList.remove('not-shared');
+
     // 確定状態（帰着確定/解除）を判定
     const finalRecs = records.filter(r => [-666, -665].includes(Number(r.stopNum)));
     if (finalRecs.length > 0) {
@@ -3085,19 +3105,19 @@ async function calcRecommendedDeparture() {
 
     recEl.innerHTML = `
       <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;
-                  padding:12px 16px;margin-top:8px;display:flex;align-items:center;
-                  gap:16px;flex-wrap:wrap;">
-        <div>
-          <div style="font-size:11px;color:#388e3c;font-weight:600;margin-bottom:2px;">💡 推奨出発時刻</div>
-          <div style="font-size:26px;font-weight:bold;color:#1b5e20;line-height:1;">${recStr}</div>
+                  padding:8px 12px;margin-top:4px;display:flex;align-items:center;
+                  gap:10px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:baseline;gap:8px;">
+          <span style="font-size:11px;color:#388e3c;font-weight:600;">💡 推奨</span>
+          <span style="font-size:22px;font-weight:bold;color:#1b5e20;line-height:1;">${recStr}</span>
         </div>
-        <div style="font-size:12px;color:#2e7d32;flex:1;min-width:180px;">
-          ${circled}${esc(stopLabel)} <strong>${schDisplay}</strong>指定<br>
-          移動 ${travelMin}分 ＋ 余裕 ${bufferMin}分
+        <div style="font-size:11px;color:#2e7d32;flex:1;min-width:120px;">
+          ${circled}${esc(stopLabel)} <strong>${schDisplay}</strong>指定
+          （移動${travelMin}分＋余裕${bufferMin}分）
         </div>
         <button class="btn btn-success btn-sm"
                 onclick="adoptRecommendedDeparture('${recStr}')">
-          ✅ この時刻を採用
+          ✅ 採用
         </button>
       </div>`;
 
