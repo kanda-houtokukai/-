@@ -1606,7 +1606,6 @@ function applyDayFilter() {
       `📅 ${dayName}曜日 ／ 通常出席 ${presentCnt}名` +
       (filtered ? `（${filtered}名を自動OFF）` : '');
   }
-  if (filtered) toast(`${dayName}曜日：${filtered}名を自動欠席にしました`, 'info', 4000);
 }
 
 function esc(s) {
