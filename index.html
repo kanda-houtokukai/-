@@ -434,8 +434,8 @@
     .confirm-route-btn.confirmed { background: var(--gray-400); cursor: default; }
     .mode-toggle-btn { font-size: 12px; padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; color: #fff; flex-shrink: 0; }
 
-    /* きらりモード：出発ボタン非表示 */
-    body.kirari-mode .depart-col { display: none !important; }
+    /* きらりモード：出発ボタンのみ非表示（時刻表示のsubは残す） */
+    body.kirari-mode .depart-btn { display: none !important; }
     /* 添乗者モード：欠席ボタン非表示 */
     body.tanjosha-mode .absence-btn { display: none !important; }
     /* 欠席した子ども */
@@ -2735,15 +2735,9 @@ function applyDepartureState() {
     const btn = li.querySelector('.depart-btn');
     const sub = li.querySelector('.depart-time-sub');
 
-    // センター（出発=0・帰着=lastIdx）は自身の記録がある時のみdeparted
+    // センター（出発=0・帰着=lastIdx）はグレー化しない
     const isCenterStop = (idx === 0 || idx === lastIdx);
-    if (isCenterStop) {
-      if (departureRecords[idx] !== undefined) {
-        li.classList.add('departed');
-      } else {
-        li.classList.remove('departed');
-      }
-    } else {
+    if (!isCenterStop) {
       if (idx <= maxDeparted) {
         li.classList.add('departed');
         li.querySelectorAll('.absence-btn:not(:disabled)').forEach(ab => {
@@ -2761,7 +2755,8 @@ function applyDepartureState() {
       if (sub) {
         const t = String(departureRecords[idx]);
         const hhmm = /^\d{1,2}:\d{2}$/.test(t) ? t : '';
-        sub.textContent = hhmm;
+        // きらりモードはボタンが非表示なのでラベル+時刻をsubに表示
+        sub.textContent = (isKirariMode && hhmm) ? `${doneLabel} ${hhmm}` : hhmm;
         if (hhmm) {
           sub.style.fontSize = '12px';
           sub.style.color = 'var(--success)';
@@ -2831,7 +2826,11 @@ async function saveRouteSnapshot(stops, routeType, arrTimeStr) {
 function toggleMode() {
   isKirariMode = !isKirariMode;
   updateModeUI();
-  if (gCurrentStops) renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
+  if (gCurrentStops) {
+    renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
+    applyDepartureState();
+    applyAbsenceState();
+  }
 }
 
 function updateModeUI() {
