@@ -2652,6 +2652,7 @@ async function syncOperation() {
     });
     applyAbsenceState();
     updateAbsenceBanner();
+    reoptimizeAfterAbsence();
 
     // スナップショット行（stopNum === -999）からルートを復元
     if (!gCurrentStops) {
