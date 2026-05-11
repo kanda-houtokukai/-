@@ -2725,19 +2725,35 @@ function applyDepartureState() {
   const keys = Object.keys(departureRecords).map(Number);
   if (!keys.length) return;
   const maxDeparted = Math.max(...keys);
-  document.querySelectorAll('.route-item[data-stop-idx]').forEach(li => {
-    const idx  = parseInt(li.dataset.stopIdx);
-    const btn  = li.querySelector('.depart-btn');
-    const sub  = li.querySelector('.depart-time-sub');
-    if (idx <= maxDeparted) {
-      li.classList.add('departed');
-      // 通過済み地点の欠席ボタンも無効化
-      li.querySelectorAll('.absence-btn:not(:disabled)').forEach(ab => {
-        ab.disabled = true; ab.style.pointerEvents = 'none';
-      });
+
+  const items = document.querySelectorAll('.route-item[data-stop-idx]');
+  const allIdx = Array.from(items).map(li => parseInt(li.dataset.stopIdx));
+  const lastIdx = allIdx.length > 0 ? Math.max(...allIdx) : -1;
+
+  items.forEach(li => {
+    const idx = parseInt(li.dataset.stopIdx);
+    const btn = li.querySelector('.depart-btn');
+    const sub = li.querySelector('.depart-time-sub');
+
+    // センター（出発=0・帰着=lastIdx）は自身の記録がある時のみdeparted
+    const isCenterStop = (idx === 0 || idx === lastIdx);
+    if (isCenterStop) {
+      if (departureRecords[idx] !== undefined) {
+        li.classList.add('departed');
+      } else {
+        li.classList.remove('departed');
+      }
     } else {
-      li.classList.remove('departed');
+      if (idx <= maxDeparted) {
+        li.classList.add('departed');
+        li.querySelectorAll('.absence-btn:not(:disabled)').forEach(ab => {
+          ab.disabled = true; ab.style.pointerEvents = 'none';
+        });
+      } else {
+        li.classList.remove('departed');
+      }
     }
+
     if (departureRecords[idx] !== undefined) {
       const isArrival = btn?.dataset.isArrival === '1';
       const doneLabel = isArrival ? '✅ 到着済み' : '✅ 出発済み';
@@ -2745,9 +2761,8 @@ function applyDepartureState() {
       if (sub) {
         const t = String(departureRecords[idx]);
         const hhmm = /^\d{1,2}:\d{2}$/.test(t) ? t : '';
-        // きらりモード（子機）はボタン非表示のためラベルと時刻をまとめて表示
-        sub.textContent = (isKirariMode && hhmm) ? `${doneLabel} ${hhmm}` : hhmm;
-        if (isKirariMode && hhmm) {
+        sub.textContent = hhmm;
+        if (hhmm) {
           sub.style.fontSize = '12px';
           sub.style.color = 'var(--success)';
           sub.style.fontWeight = '700';
@@ -3217,14 +3232,28 @@ async function checkConfirmedRoute(dateStr) {
     if (isFinalized) document.body.classList.add('finalized');
     else document.body.classList.remove('finalized');
 
+    // 出発記録・欠席記録を同じレスポンスから即時反映（別途syncOperation不要）
+    records.filter(r => Number(r.stopNum) >= 0)
+           .forEach(r => { departureRecords[Number(r.stopNum)] = r.departTime; });
+    records.filter(r => Number(r.stopNum) === -777).forEach(r => {
+      try {
+        const d = JSON.parse(r.departTime);
+        if (d.personName !== undefined && d.stopIdx !== undefined) {
+          absenceRecords[`${d.stopIdx}_${d.personName}`] = d.reason || 'その他';
+        }
+      } catch(e) {}
+    });
+
     document.getElementById('card-result').style.display = '';
     renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
     updateConfirmButton(true);
     updateModeUI();
-    redrawMapRoute(gCurrentStops);  // 地図を再描画
+    applyDepartureState();
+    applyAbsenceState();
+    updateAbsenceBanner();
+    redrawMapRoute(gCurrentStops);
 
     if (!syncTimerId) {
-      syncOperation();
       syncTimerId = setInterval(syncOperation, 30000);
     }
     toast('📋 確定済みルートを表示しています', 'info');
