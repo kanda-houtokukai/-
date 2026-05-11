@@ -70,12 +70,12 @@
       letter-spacing: 0.5px;
     }
     .header-logo {
-      height: 45px !important;
+      height: 90px !important;
       width: auto;
       display: block;
     }
     .header-logo-left {
-      height: 36px;
+      height: 25px;
       width: auto;
       display: block;
     }
@@ -718,8 +718,8 @@
     @media (max-width: 640px) {
       .title-line1 { font-size: 7px; }
       .title-line2 { font-size: 6px; }
-      .header-logo { height: 45px !important; }
-      .header-logo-left { height: 30px !important; }
+      .header-logo { height: 90px !important; }
+      .header-logo-left { height: 21px !important; }
       .stats-bar { flex-wrap: wrap; }
       .stat-item { min-width: 50%; border-right: 1px solid var(--gray-200); }
       .form-grid { grid-template-columns: 1fr; }
@@ -748,8 +748,8 @@
       }
       .title-line1 { font-size: 7px !important; }
       .title-line2 { font-size: 5px !important; }
-      .header-logo { height: 37px !important; }
-      .header-logo-left { height: 26px !important; }
+      .header-logo { height: 74px !important; }
+      .header-logo-left { height: 18px !important; }
       /* ヘッダー日付枠 */
       #today-badge {
         min-width: 0 !important;
@@ -1484,11 +1484,6 @@ async function loadSheets() {
     document.getElementById('sheet-load-status').textContent =
       `読み込み完了 — ${statusParts.join('　')}`;
 
-    toast(`${children.length}名を読み込みました（出席 ${presentCnt}名）`, 'success');
-    if (unmatchedCnt > 0)
-      toast(`${unmatchedCnt}名は出欠シートに未記載のため出席扱いにしました`, 'warning', 5000);
-    if (bizInfo.maxCapacity && presentCnt > bizInfo.maxCapacity)
-      toast(`⚠ 出席者数(${presentCnt}名)が最大乗車人数(${bizInfo.maxCapacity}名)を超えています`, 'warning', 7000);
 
     setStep(2);
 
@@ -2002,7 +1997,6 @@ async function optimizeRoute() {
 
     setStep(4);
     document.getElementById('card-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    toast('ルートを最適化しました', 'success');
 
   } catch (e) {
     const statusInfo = e.apiStatus ? ` [APIステータス: ${e.apiStatus}]` : '';
@@ -2669,15 +2663,15 @@ async function syncOperation() {
           gCurrentStops      = deserializeStops(data.stops);
           gCurrentRouteType  = data.routeType;
           gCurrentArrTimeStr = data.arrTimeStr;
-          document.getElementById('card-result').style.display = '';
-          if (!localStorage.getItem('parentDevice')) isKirariMode = true;
-          // スナップショットは共有前の状態（-888が別途ある場合はcheckConfirmedRouteで上書き）
-          if (!isShared) document.body.classList.add('not-shared');
-          renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
-          updateModeUI();
-          redrawMapRoute(gCurrentStops);
+          // 確定済み(-888)の場合のみ card-result を表示。未確定はホーム画面のまま
+          if (isShared) {
+            document.getElementById('card-result').style.display = '';
+            renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
+            updateModeUI();
+            redrawMapRoute(gCurrentStops);
+            toast('📡 運行中のルートを自動表示しています', 'info');
+          }
           if (!syncTimerId) syncTimerId = setInterval(syncOperation, 30000);
-          toast('📡 運行中のルートを自動表示しています', 'info');
         } catch (e) { console.warn('[同期] スナップショット復元失敗:', e); }
       }
     }
@@ -3219,11 +3213,6 @@ async function checkConfirmedRoute(dateStr) {
     if (isFinalized) document.body.classList.add('finalized');
     else document.body.classList.remove('finalized');
 
-    // 非親端末はきらりモードをデフォルトに
-    if (!localStorage.getItem('parentDevice')) {
-      isKirariMode = true;
-    }
-
     document.getElementById('card-result').style.display = '';
     renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
     updateConfirmButton(true);
@@ -3388,7 +3377,6 @@ function adoptRecommendedDeparture(timeStr) {
   input.style.transition = 'background-color 0.15s';
   input.style.backgroundColor = '#c8e6c9';
   setTimeout(() => { input.style.backgroundColor = ''; }, 1200);
-  toast(`出発時刻を ${timeStr} に設定しました`, 'success');
 }
 
 // ─────────────────────────────────────────
