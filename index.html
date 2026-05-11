@@ -423,12 +423,36 @@
     .depart-time-sub { font-size: 10px; color: var(--success); font-weight: 700; text-align: right; }
     .route-item.departed { opacity: 0.4; transition: opacity .3s; }
     .sync-status { font-size: 11px; color: var(--gray-500); text-align: right; margin-bottom: 6px; }
-    .view-mode .depart-btn { display: none !important; }
     .confirm-route-btn { padding: 12px 24px; font-size: 15px; font-weight: 700; background: var(--success); color: #fff; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 2px 6px rgba(52,168,83,.4); transition: background .15s; }
     .confirm-route-btn:hover:not(:disabled) { background: var(--success-dark); }
     .confirm-route-btn:disabled { background: var(--gray-300); color: var(--gray-600); cursor: default; box-shadow: none; }
     .confirm-route-btn.confirmed { background: var(--gray-400); cursor: default; }
     .mode-toggle-btn { font-size: 12px; padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; color: #fff; flex-shrink: 0; }
+
+    /* きらりモード：出発ボタン非表示 */
+    body.kirari-mode .depart-col { display: none !important; }
+    /* 添乗者モード：欠席ボタン非表示 */
+    body.tanjosha-mode .absence-btn { display: none !important; }
+    /* 欠席した子ども */
+    .absent-child strong { text-decoration: line-through; }
+    .absent-child { opacity: 0.5; }
+    .all-absent-stop { opacity: 0.4; }
+    /* 欠席ボタン */
+    .absence-btn { background: #ef5350; color: #fff; border: none; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; margin-left: 6px; vertical-align: middle; }
+    .absence-btn:disabled { background: var(--gray-300); color: var(--gray-600); cursor: default; }
+    /* 帰着ボタン */
+    .finalize-btn { padding: 12px 24px; font-size: 15px; font-weight: 700; background: #e53935; color: #fff; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 2px 6px rgba(229,57,53,.4); }
+    .finalize-btn:hover:not(:disabled) { background: #b71c1c; }
+    /* 復帰ボタン */
+    .restore-btn { padding: 10px 20px; font-size: 14px; font-weight: 700; background: #ff5722; color: #fff; border: none; border-radius: 10px; cursor: pointer; }
+    .restore-btn:hover { background: #e64a19; }
+    /* 欠席バナー */
+    .absence-banner { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+    /* 帰着確定：操作ボタン非表示 */
+    body.finalized .confirm-route-btn { display: none !important; }
+    body.finalized #finalize-area { display: none !important; }
+    /* 固定モード切替ボタン */
+    #mode-toggle-btn { position: fixed; bottom: 20px; right: 20px; z-index: 9999; border-radius: 50px; padding: 12px 20px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
 
     /* ── Toast ── */
     #toast-container {
@@ -943,10 +967,6 @@
       <div style="display:flex;align-items:center;gap:10px;width:100%;">
         <div class="step-badge" style="background:var(--success);">4</div>
         <h2 style="font-size:15px;font-weight:700;margin:0;">最適化ルート</h2>
-        <button id="mode-toggle-btn" class="mode-toggle-btn no-print"
-                onclick="toggleMode()" style="margin-left:auto;background:var(--gray-500);display:none;">
-          👁 閲覧モード
-        </button>
       </div>
     </div>
 
@@ -982,12 +1002,21 @@
       <div id="arrival-alert" style="margin-bottom:16px;"></div>
       <ul class="route-list" id="route-list"></ul>
 
-      <!-- 確定ボタン -->
+      <!-- 欠席通知バナー（添乗者モード） -->
+      <div id="absence-banner" class="absence-banner no-print" style="display:none;"></div>
+
+      <!-- 第1段階：出発・共有開始ボタン -->
       <div class="no-print" style="margin-top:20px;text-align:center;">
         <button id="confirm-route-btn" class="confirm-route-btn" onclick="confirmRoute()" style="display:none;">
-          ✅ ルートを確定する
+          🚀 出発・共有開始
         </button>
         <div id="confirm-status" style="font-size:12px;color:var(--gray-600);margin-top:6px;"></div>
+      </div>
+
+      <!-- 第2段階：帰着ボタン（全出発後に添乗者モードで表示） -->
+      <div class="no-print" id="finalize-area" style="margin-top:12px;text-align:center;display:none;">
+        <button class="finalize-btn" onclick="finalizeRoute()">🏁 帰着</button>
+        <div style="font-size:12px;color:var(--gray-600);margin-top:6px;">全停車地の出発記録後に押してください</div>
       </div>
 
       <!-- 印刷ボタン（ルート一覧の直下） -->
@@ -999,6 +1028,12 @@
                        box-shadow:0 2px 8px rgba(245,124,0,.35);">
           🖨️ 印刷・PDF保存
         </button>
+      </div>
+
+      <!-- 復帰ボタン（帰着確定後に表示） -->
+      <div class="no-print" id="restore-area" style="margin-top:20px;text-align:center;display:none;">
+        <button class="restore-btn" onclick="restoreRoute()">⚠️ 復帰する</button>
+        <div style="font-size:12px;color:#e53935;margin-top:6px;">確定を解除して編集可能に戻します</div>
       </div>
     </div>
 
@@ -1022,6 +1057,9 @@
 
 </main>
 
+<!-- 固定モード切替ボタン -->
+<button id="mode-toggle-btn" onclick="toggleMode()">きらりに切替</button>
+
 <!-- ═══════════════ SCRIPT ═══════════════ -->
 <script>
 // ─────────────────────────────────────────
@@ -1038,7 +1076,9 @@ let syncTimerId = null;    // 自動同期タイマー
 let gCurrentStops = null;  // 現在のルート stops（スナップショット用）
 let gCurrentRouteType = null;
 let gCurrentArrTimeStr = null;
-let isViewMode = false;    // 閲覧モード=true / 操作モード=false
+let isKirariMode = false;  // false=添乗者モード, true=きらりモード
+let isFinalized  = false;  // 帰着確定済み
+let absenceRecords = {};   // { "stopIdx_personName": true }
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyhGI6v3kfhx0oetWEsKgj_gtcw4A9nwdfKzbCY8O7YD6pFA9rce3py-xKjxzKU_o_eCQ/exec';
 
 const SETTING_KEYS = ['maps-key','sheets-key','sheet-id','sheet-kid','sheet-biz','sheet-att','center-addr'];
@@ -1912,7 +1952,7 @@ async function optimizeRoute() {
     gCurrentStops    = stops;
     gCurrentRouteType   = routeType;
     gCurrentArrTimeStr  = arrTimeStr;
-    isViewMode = false;
+    isKirariMode = false;
     renderRouteList(stops, routeType, arrTimeStr);
     updateModeUI();
     updateConfirmButton(false);
@@ -2384,7 +2424,11 @@ function renderRouteList(stops, routeType, arrTimeStr) {
     if (stop.kind === 'child' && stop.children?.length) {
       childrenHtml = stop.children.map(c => {
         const phone = c.phone ? `　<span style="color:var(--gray-600);">📞 ${esc(c.phone)}</span>` : '';
-        return `<div style="font-size:12px;margin-top:3px;">🧒 <strong>${esc(c.name)}</strong>${phone}</div>`;
+        const absKey = `${idx}_${c.name}`;
+        const absent = absenceRecords[absKey];
+        const absBtnId = `abs-btn-${idx}-${c.name.replace(/[^a-zA-Z0-9]/g,'_')}`;
+        const absBtn = `<button class="absence-btn" id="${absBtnId}" onclick="recordAbsence(${idx},'${esc(c.name).replace(/'/g,'&#39;')}')" ${absent ? 'disabled' : ''}>${absent ? '欠席済み' : '欠席'}</button>`;
+        return `<div class="child-row ${absent ? 'absent-child' : ''}" data-child-key="${idx}_${c.name}" style="font-size:12px;margin-top:3px;">🧒 <strong>${esc(c.name)}</strong>${phone}${absBtn}</div>`;
       }).join('');
     }
 
@@ -2542,6 +2586,27 @@ async function syncOperation() {
     records.filter(r => Number(r.stopNum) >= 0)
            .forEach(r => { departureRecords[Number(r.stopNum)] = r.departTime; });
 
+    // 帰着確定状態を同期
+    const finalRecs = records.filter(r => [-666, -665].includes(Number(r.stopNum)));
+    if (finalRecs.length > 0) {
+      const lastFinal = finalRecs[finalRecs.length - 1];
+      isFinalized = Number(lastFinal.stopNum) === -666;
+      if (isFinalized) document.body.classList.add('finalized');
+      else document.body.classList.remove('finalized');
+    }
+
+    // 欠席記録を同期
+    records.filter(r => Number(r.stopNum) === -777).forEach(r => {
+      try {
+        const d = JSON.parse(r.departTime);
+        if (d.personName !== undefined && d.stopIdx !== undefined) {
+          absenceRecords[`${d.stopIdx}_${d.personName}`] = true;
+        }
+      } catch(e) {}
+    });
+    applyAbsenceState();
+    updateAbsenceBanner();
+
     // スナップショット行（stopNum === -999）からルートを復元
     if (!gCurrentStops) {
       const snaps = records.filter(r => Number(r.stopNum) === -999);
@@ -2552,7 +2617,7 @@ async function syncOperation() {
           gCurrentRouteType  = data.routeType;
           gCurrentArrTimeStr = data.arrTimeStr;
           document.getElementById('card-result').style.display = '';
-          if (!localStorage.getItem('parentDevice')) isViewMode = true;
+          if (!localStorage.getItem('parentDevice')) isKirariMode = true;
           renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
           updateModeUI();
           redrawMapRoute(gCurrentStops);
@@ -2591,9 +2656,9 @@ function applyDepartureState() {
       if (sub) {
         const t = String(departureRecords[idx]);
         const hhmm = /^\d{1,2}:\d{2}$/.test(t) ? t : '';
-        // 閲覧モード（子機）はボタン非表示のためラベルと時刻をまとめて表示
-        sub.textContent = (isViewMode && hhmm) ? `${doneLabel} ${hhmm}` : hhmm;
-        if (isViewMode && hhmm) {
+        // きらりモード（子機）はボタン非表示のためラベルと時刻をまとめて表示
+        sub.textContent = (isKirariMode && hhmm) ? `${doneLabel} ${hhmm}` : hhmm;
+        if (isKirariMode && hhmm) {
           sub.style.fontSize = '12px';
           sub.style.color = 'var(--success)';
           sub.style.fontWeight = '700';
@@ -2601,6 +2666,7 @@ function applyDepartureState() {
       }
     }
   });
+  updateFinalizeButton();
 }
 
 function startOperationSync() {
@@ -2655,26 +2721,32 @@ async function saveRouteSnapshot(stops, routeType, arrTimeStr) {
   } catch (err) { console.warn('[スナップショット] POST失敗:', err); }
 }
 
-// 閲覧モード ⇔ 操作モード 切替
+// 添乗者モード ⇔ きらりモード 切替
 function toggleMode() {
-  isViewMode = !isViewMode;
+  isKirariMode = !isKirariMode;
   updateModeUI();
+  if (gCurrentStops) renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
 }
 
 function updateModeUI() {
-  const btn      = document.getElementById('mode-toggle-btn');
+  const btn = document.getElementById('mode-toggle-btn');
   const routeBody = document.getElementById('route-body');
   if (!btn) return;
-  btn.style.display = '';
-  if (isViewMode) {
-    btn.textContent = '✏️ 操作モード';
-    btn.style.background = 'var(--gray-500)';
-    routeBody?.classList.add('view-mode');
+  if (isKirariMode) {
+    btn.textContent = '添乗者に切替';
+    btn.style.background = '#9c27b0';
+    document.body.classList.add('kirari-mode');
+    document.body.classList.remove('tanjosha-mode');
+    routeBody?.classList.add('view-mode');    // keep for print compat
   } else {
-    btn.textContent = '👁 閲覧モード';
-    btn.style.background = 'var(--primary)';
+    btn.textContent = 'きらりに切替';
+    btn.style.background = '#f44336';
+    document.body.classList.remove('kirari-mode');
+    document.body.classList.add('tanjosha-mode');
     routeBody?.classList.remove('view-mode');
   }
+  updateFinalizeButton();
+  updateAbsenceBanner();
 }
 
 // ─────────────────────────────────────────
@@ -2686,15 +2758,15 @@ function updateConfirmButton(isConfirmed) {
   if (!btn) return;
   btn.style.display = '';
   if (isConfirmed) {
-    btn.textContent = '✅ 確定済み';
+    btn.textContent = '✅ 共有中';
     btn.disabled = true;
     btn.classList.add('confirmed');
-    if (status) status.textContent = '他の端末でもこのルートが自動表示されます';
+    if (status) status.textContent = '他の端末でもこのルートが共有されています';
   } else {
-    btn.textContent = '✅ ルートを確定する';
+    btn.textContent = '🚀 出発・共有開始';
     btn.disabled = false;
     btn.classList.remove('confirmed');
-    if (status) status.textContent = 'このルートを確定すると他の端末で自動表示されます';
+    if (status) status.textContent = 'このボタンを押すまで他端末には共有されません';
   }
 }
 
@@ -2717,13 +2789,135 @@ async function confirmRoute() {
   try {
     await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
     localStorage.setItem('parentDevice', '1');  // この端末が親端末であることを記録
+    isKirariMode = false;  // 添乗者モードにセット
     updateConfirmButton(true);
-    toast('ルートを確定しました', 'success');
+    updateModeUI();
+    toast('🚀 出発・共有を開始しました', 'success');
   } catch (err) {
     btn.disabled = false;
-    btn.textContent = '✅ ルートを確定する';
+    btn.textContent = '🚀 出発・共有開始';
     toast('確定の保存に失敗しました', 'error');
   }
+}
+
+// 帰着確定
+async function finalizeRoute() {
+  if (!gCurrentStops || isFinalized) return;
+  const btn = document.getElementById('finalize-area')?.querySelector('button');
+  if (btn) { btn.disabled = true; btn.textContent = '記録中…'; }
+  const payload = JSON.stringify({
+    date: getSelectedDate(),
+    stopNum: -666,
+    departTime: JSON.stringify({
+      routeType: gCurrentRouteType,
+      arrTimeStr: gCurrentArrTimeStr,
+      stops: serializeStops(gCurrentStops)
+    })
+  });
+  try {
+    await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
+    isFinalized = true;
+    document.body.classList.add('finalized');
+    updateFinalizeButton();
+    toast('🏁 帰着を記録しました', 'success');
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = '🏁 帰着'; }
+    toast('帰着記録に失敗しました', 'error');
+  }
+}
+
+// 帰着確定を解除
+async function restoreRoute() {
+  const payload = JSON.stringify({ date: getSelectedDate(), stopNum: -665, departTime: 'restore' });
+  try {
+    await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
+    isFinalized = false;
+    document.body.classList.remove('finalized');
+    updateFinalizeButton();
+    toast('確定を解除しました', 'info');
+  } catch(e) {
+    toast('解除に失敗しました', 'error');
+  }
+}
+
+// 帰着ボタン表示制御
+function updateFinalizeButton() {
+  const area    = document.getElementById('finalize-area');
+  const restoreArea = document.getElementById('restore-area');
+  if (!area) return;
+  if (isFinalized) {
+    area.style.display = 'none';
+    if (restoreArea) restoreArea.style.display = '';
+    return;
+  }
+  if (restoreArea) restoreArea.style.display = 'none';
+  if (!isKirariMode && gCurrentStops && !isFinalized) {
+    const allDone = Object.keys(departureRecords).length >= gCurrentStops.length;
+    area.style.display = allDone ? '' : 'none';
+  } else {
+    area.style.display = 'none';
+  }
+}
+
+// 欠席記録
+async function recordAbsence(stopIdx, personName) {
+  const key = `${stopIdx}_${personName}`;
+  absenceRecords[key] = true;
+  applyAbsenceState();
+  updateAbsenceBanner();
+  const payload = JSON.stringify({
+    date: getSelectedDate(),
+    stopNum: -777,
+    departTime: JSON.stringify({ stopIdx, personName })
+  });
+  try {
+    await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
+    toast(`${personName}を欠席登録しました`, 'info');
+  } catch(e) {
+    console.warn('欠席登録失敗:', e);
+  }
+}
+
+// 欠席状態をUIに反映
+function applyAbsenceState() {
+  if (!gCurrentStops) return;
+  document.querySelectorAll('.route-item').forEach(li => {
+    const idx = parseInt(li.dataset.stopIdx);
+    if (isNaN(idx)) return;
+    const stop = gCurrentStops[idx];
+    if (!stop?.children) return;
+    stop.children.forEach(c => {
+      const key = `${idx}_${c.name}`;
+      const row = li.querySelector(`.child-row[data-child-key="${key}"]`);
+      if (!row) return;
+      const btn = row.querySelector('.absence-btn');
+      if (absenceRecords[key]) {
+        row.classList.add('absent-child');
+        if (btn) { btn.disabled = true; btn.textContent = '欠席済み'; }
+      }
+    });
+    // 全員欠席なら停車地全体を薄く
+    const allAbsent = stop.children.every(c => absenceRecords[`${idx}_${c.name}`]);
+    if (allAbsent) li.classList.add('all-absent-stop');
+    else li.classList.remove('all-absent-stop');
+  });
+}
+
+// 欠席通知バナー更新（添乗者モード用）
+function updateAbsenceBanner() {
+  const banner = document.getElementById('absence-banner');
+  if (!banner) return;
+  const keys = Object.keys(absenceRecords);
+  if (isKirariMode || !keys.length) { banner.style.display = 'none'; return; }
+  const items = keys.map(key => {
+    const sep = key.indexOf('_');
+    const stopIdx = parseInt(key.substring(0, sep));
+    const name = key.substring(sep + 1);
+    const stop = gCurrentStops?.[stopIdx];
+    return `${name}（${stop?.label || `停車${stopIdx}`}）`;
+  });
+  banner.innerHTML = `⚠️ 欠席：${items.join('・')}`;
+  banner.style.display = '';
 }
 
 async function checkConfirmedRoute(dateStr) {
@@ -2744,9 +2938,20 @@ async function checkConfirmedRoute(dateStr) {
     gCurrentRouteType  = data.routeType;
     gCurrentArrTimeStr = data.arrTimeStr;
 
-    // 親端末以外（sessionStorageにフラグなし）は自動的に閲覧モードに
+    // 確定状態（帰着確定/解除）を判定
+    const finalRecs = records.filter(r => [-666, -665].includes(Number(r.stopNum)));
+    if (finalRecs.length > 0) {
+      const lastFinal = finalRecs[finalRecs.length - 1];
+      isFinalized = Number(lastFinal.stopNum) === -666;
+    } else {
+      isFinalized = false;
+    }
+    if (isFinalized) document.body.classList.add('finalized');
+    else document.body.classList.remove('finalized');
+
+    // 非親端末はきらりモードをデフォルトに
     if (!localStorage.getItem('parentDevice')) {
-      isViewMode = true;
+      isKirariMode = true;
     }
 
     document.getElementById('card-result').style.display = '';
@@ -2787,11 +2992,20 @@ async function checkAndShowConfirmedRoute(dateStr) {
 
   const found = await checkConfirmedRoute(dateStr);
   if (found) {
-    statusEl.style.background = '#f1f8e9';
-    statusEl.style.color = '#33691e';
-    statusEl.style.borderColor = '#aed581';
-    statusEl.textContent = '✅ 確定済みルートを表示しています';
+    if (isFinalized) {
+      statusEl.style.background = '#e8f5e9';
+      statusEl.style.color = '#1b5e20';
+      statusEl.style.borderColor = '#a5d6a7';
+      statusEl.textContent = '🏁 帰着確定済み（本日の運行が完了しています）';
+    } else {
+      statusEl.style.background = '#f1f8e9';
+      statusEl.style.color = '#33691e';
+      statusEl.style.borderColor = '#aed581';
+      statusEl.textContent = '✅ 共有中のルートを表示しています';
+    }
   } else {
+    // 未共有：ルート表示をクリアしてSTEP1のみ
+    document.getElementById('card-result').style.display = 'none';
     statusEl.style.background = '#fff8e1';
     statusEl.style.color = '#e65100';
     statusEl.style.borderColor = '#ffcc02';
