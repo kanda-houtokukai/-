@@ -74,6 +74,11 @@
       width: auto;
       display: block;
     }
+    .header-logo-left {
+      height: 36px;
+      width: auto;
+      display: block;
+    }
     .app-header .badge {
       justify-self: stretch;
       font-size: 8px;
@@ -714,6 +719,7 @@
       .title-line1 { font-size: 7px; }
       .title-line2 { font-size: 6px; }
       .header-logo { height: 45px !important; }
+      .header-logo-left { height: 30px !important; }
       .stats-bar { flex-wrap: wrap; }
       .stat-item { min-width: 50%; border-right: 1px solid var(--gray-200); }
       .form-grid { grid-template-columns: 1fr; }
@@ -743,6 +749,7 @@
       .title-line1 { font-size: 7px !important; }
       .title-line2 { font-size: 5px !important; }
       .header-logo { height: 37px !important; }
+      .header-logo-left { height: 26px !important; }
       /* ヘッダー日付枠 */
       #today-badge {
         min-width: 0 !important;
@@ -846,15 +853,12 @@
 
 <!-- ═══════════════ HEADER ═══════════════ -->
 <header class="app-header no-print">
-  <!-- 左：小さめのテキスト -->
-  <div style="display:flex;flex-direction:column;flex-shrink:0;">
-    <div class="title-line1">送迎ルート</div>
-    <div class="title-line2">最適化システム</div>
-  </div>
+  <!-- 左：AI 送迎管理システムロゴ -->
+  <img src="logo_ai.png" alt="AI 送迎管理システム" class="header-logo-left">
   <!-- 中央：ロゴ画像（ホームに戻るボタン） -->
   <button id="app-title" onclick="location.reload()" title="ホームに戻る"
     style="background:none;border:none;cursor:pointer;padding:0;display:flex;justify-content:center;align-items:center;">
-    <img src="logo.png" alt="つながるーど" class="header-logo">
+    <img src="logo.png" alt="つながるーと" class="header-logo">
   </button>
   <!-- 右：日付バッジ -->
   <span class="badge header-right" id="today-badge"></span>
