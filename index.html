@@ -2997,34 +2997,50 @@ function cancelAbsence() {
 
 // 全員欠席になった地点をスキップしてルートを再計算
 async function reoptimizeAfterAbsence() {
-  if (!gCurrentStops || !mapsReady || !window.google?.maps?.DirectionsService) return;
+  if (!gCurrentStops) return;
 
-  // 最後に通過済みの停車番号
   const departedKeys = Object.keys(departureRecords).map(Number);
   const lastDeparted = departedKeys.length > 0 ? Math.max(...departedKeys) : -1;
 
-  // 未通過の child 停車地で「全員欠席かつ未スキップ」があるか確認
+  // ① 新たに全員欠席になった未通過・未スキップ地点にスキップフラグを立てる
   let anyNew = false;
   gCurrentStops.forEach((stop, idx) => {
     if (stop.kind !== 'child' || idx <= lastDeparted || stop.skipped) return;
-    if (stop.children?.every(c => absenceRecords[`${idx}_${c.name}`])) anyNew = true;
+    if (stop.children?.every(c => absenceRecords[`${idx}_${c.name}`])) {
+      stop.skipped   = true;
+      stop.travelMin = null;
+      stop.dist      = '';
+      stop.eta       = null;
+      anyNew = true;
+    }
   });
   if (!anyNew) return;
 
-  // 有効停車地（スキップしない地点のみ）
-  const effectiveStops = gCurrentStops.filter((stop, idx) => {
-    if (stop.kind === 'center') return true;
-    if (idx <= lastDeparted) return true;
-    if (stop.kind !== 'child') return true;
-    return !stop.children?.every(c => absenceRecords[`${idx}_${c.name}`]);
-  });
-  if (effectiveStops.length < 2) return;
+  // ② ルートリストを先に更新（地図なしでも反映）
+  renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
+  applyDepartureState();
+  applyAbsenceState();
+
+  // ③ Maps API 未準備ならリスト更新と GAS 保存のみ
+  if (!mapsReady || !window.google?.maps?.DirectionsService) {
+    await _saveReoptimizedRoute();
+    return;
+  }
+
+  if (!gMap || !gRenderer) ensureMap();
+
+  // ④ スキップを除いた有効停車地（redrawMapRoute と同じフィルタ）
+  const activeStops = gCurrentStops.filter(s => !s.skipped);
+  if (activeStops.length < 2) {
+    await _saveReoptimizedRoute();
+    return;
+  }
 
   toast('欠席により経路を再計算中...', 'info');
   try {
-    const origin      = effectiveStops[0].address;
-    const destination = effectiveStops[effectiveStops.length - 1].address;
-    const waypoints   = effectiveStops.slice(1, -1).map(s => ({ location: s.address, stopover: true }));
+    const origin      = activeStops[0].address;
+    const destination = activeStops[activeStops.length - 1].address;
+    const waypoints   = activeStops.slice(1, -1).map(s => ({ location: s.address, stopover: true }));
 
     const svc = new google.maps.DirectionsService();
     const result = await new Promise((resolve, reject) => {
@@ -3038,60 +3054,46 @@ async function reoptimizeAfterAbsence() {
 
     const legs = result.routes[0].legs;
 
-    // effectiveStops の ETA と移動時間を更新
-    let cur = effectiveStops[0].eta ? new Date(effectiveStops[0].eta) : new Date();
-    for (let i = 1; i < effectiveStops.length; i++) {
-      const leg = legs[i - 1];
+    // ⑤ activeStops の ETA と移動時間を更新
+    let cur = activeStops[0].eta ? new Date(activeStops[0].eta) : new Date();
+    for (let i = 1; i < activeStops.length; i++) {
+      const leg       = legs[i - 1];
       const travelSec = leg.duration_in_traffic?.value ?? leg.duration.value;
       cur = new Date(cur.getTime() + travelSec * 1000);
-      effectiveStops[i].travelMin = Math.ceil(travelSec / 60);
-      effectiveStops[i].dist      = leg.distance.text;
-      effectiveStops[i].eta       = new Date(cur);
-      if (effectiveStops[i].kind === 'child' && effectiveStops[i].boardMin != null) {
-        cur = new Date(cur.getTime() + effectiveStops[i].boardMin * 60 * 1000);
+      activeStops[i].travelMin = Math.ceil(travelSec / 60);
+      activeStops[i].dist      = leg.distance.text;
+      activeStops[i].eta       = new Date(cur);
+      if (activeStops[i].kind === 'child' && activeStops[i].boardMin != null) {
+        cur = new Date(cur.getTime() + activeStops[i].boardMin * 60 * 1000);
       }
     }
 
-    // gCurrentStops の全員欠席地点を skipped に設定
-    const effectiveSet = new Set(effectiveStops);
-    gCurrentStops.forEach((stop, idx) => {
-      if (stop.kind !== 'child' || idx <= lastDeparted) return;
-      if (!effectiveSet.has(stop)) {
-        stop.skipped   = true;
-        stop.travelMin = null;
-        stop.dist      = '';
-        stop.eta       = null;
-      }
-    });
-
-    // 地図を再描画（effectiveStops のみ経由）
+    // ⑥ 地図を更新
     gRenderer.setMap(gMap);
     gRenderer.setDirections(result);
     gDirectionsResult = result;
     clearCustomMarkers();
-    // 発マーカー
+
     gMarkers.push(new google.maps.Marker({
       position: legs[0].start_location, map: gMap,
       icon: makeCircleIcon('#34a853', 18),
       label: { text: '発', color: '#fff', fontWeight: 'bold', fontSize: '14px' },
-      title: effectiveStops[0].label, zIndex: 300,
+      title: activeStops[0].label, zIndex: 300,
     }));
-    // 経由地マーカー（元インデックス番号）
     for (let i = 0; i < legs.length - 1; i++) {
-      const origIdx = gCurrentStops.indexOf(effectiveStops[i + 1]);
+      const origIdx = gCurrentStops.indexOf(activeStops[i + 1]);
       gMarkers.push(new google.maps.Marker({
         position: legs[i].end_location, map: gMap,
         icon: makeCircleIcon('#1a73e8', 16),
         label: { text: String(origIdx), color: '#fff', fontWeight: 'bold', fontSize: '14px' },
-        title: effectiveStops[i + 1].label, zIndex: 100 + i,
+        title: activeStops[i + 1].label, zIndex: 100 + i,
       }));
     }
-    // 着マーカー
     gMarkers.push(new google.maps.Marker({
       position: legs[legs.length - 1].end_location, map: gMap,
       icon: makeCircleIcon('#ea4335', 18),
       label: { text: '着', color: '#fff', fontWeight: 'bold', fontSize: '14px' },
-      title: effectiveStops[effectiveStops.length - 1].label, zIndex: 300,
+      title: activeStops[activeStops.length - 1].label, zIndex: 300,
     }));
     setTimeout(() => {
       google.maps.event.trigger(gMap, 'resize');
@@ -3100,32 +3102,34 @@ async function reoptimizeAfterAbsence() {
       if (!b.isEmpty()) gMap.fitBounds(b, 30);
     }, 300);
 
-    // ルートリスト再描画
     renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
     applyDepartureState();
     applyAbsenceState();
     updateCompletedRouteOverlay();
 
-    // GAS に更新後のルートを保存
-    saveRouteSnapshot(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
-    if (isShared) {
-      const payload = JSON.stringify({
-        date: getSelectedDate(),
-        stopNum: -888,
-        departTime: JSON.stringify({
-          routeType:  gCurrentRouteType,
-          arrTimeStr: gCurrentArrTimeStr,
-          stops:      serializeStops(gCurrentStops),
-        })
-      });
-      await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
-    }
-
+    await _saveReoptimizedRoute();
     toast('経路を再最適化しました', 'success');
   } catch (e) {
-    console.warn('[経路再最適化] エラー:', e);
-    toast('経路の再計算に失敗しました', 'error');
+    console.error('[経路再最適化] エラー:', e);
+    toast('経路の再計算に失敗しました: ' + e.message, 'error');
   }
+}
+
+async function _saveReoptimizedRoute() {
+  saveRouteSnapshot(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
+  if (!isShared) return;
+  const payload = JSON.stringify({
+    date: getSelectedDate(),
+    stopNum: -888,
+    departTime: JSON.stringify({
+      routeType:  gCurrentRouteType,
+      arrTimeStr: gCurrentArrTimeStr,
+      stops:      serializeStops(gCurrentStops),
+    })
+  });
+  try {
+    await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
+  } catch (e) { console.warn('[再最適化保存] エラー:', e); }
 }
 
 // 欠席状態をUIに反映
