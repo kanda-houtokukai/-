@@ -2850,10 +2850,13 @@ function applyDepartureState() {
   updateCompletedRouteOverlay();
 
   // ─── 現在移動中区間の点滅 ───
+  // departureRecords の最大インデックスを基準にすることで
+  // effectiveDeparted の計算誤差に依存しない正確な判定を実現
   document.querySelectorAll('.conn-travel-span').forEach(el => el.classList.remove('moving-now'));
-  // 出発済みがあり、次の地点が存在する場合のみ点滅
-  if (effKeys.length > 0 && nextExpected !== undefined && nextExpected !== 0) {
-    const conn = document.querySelector(`[data-conn-dest="${nextExpected}"]`);
+  const departedNums = Object.keys(departureRecords).map(Number);
+  const lastDepartedIdx = departedNums.length > 0 ? Math.max(...departedNums) : -1;
+  if (lastDepartedIdx >= 0 && lastDepartedIdx !== lastIdx) {
+    const conn = document.querySelector(`[data-conn-dest="${lastDepartedIdx + 1}"]`);
     const span = conn?.querySelector('.conn-travel-span');
     if (span) span.classList.add('moving-now');
   }
