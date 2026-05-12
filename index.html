@@ -2638,8 +2638,12 @@ async function syncOperation() {
     if (!Array.isArray(records)) return;
 
     // 出発記録（stopNum >= 0 のみ）を適用
-    records.filter(r => Number(r.stopNum) >= 0)
-           .forEach(r => { departureRecords[Number(r.stopNum)] = r.departTime; });
+    // GASからの復元時も localDeparted に追加して出発済み状態を正しく復元
+    records.filter(r => Number(r.stopNum) >= 0).forEach(r => {
+      const idx = Number(r.stopNum);
+      departureRecords[idx] = r.departTime;
+      localDeparted.add(idx);
+    });
 
     // 帰着確定状態を同期
     const finalRecs = records.filter(r => [-666, -665].includes(Number(r.stopNum)));
@@ -3353,8 +3357,12 @@ async function checkConfirmedRoute(dateStr) {
     else document.body.classList.remove('finalized');
 
     // 出発記録・欠席記録・確認済みを同じレスポンスから即時反映（別途syncOperation不要）
-    records.filter(r => Number(r.stopNum) >= 0)
-           .forEach(r => { departureRecords[Number(r.stopNum)] = r.departTime; });
+    // GASからの復元時も localDeparted に追加して出発済み状態を正しく復元
+    records.filter(r => Number(r.stopNum) >= 0).forEach(r => {
+      const idx = Number(r.stopNum);
+      departureRecords[idx] = r.departTime;
+      localDeparted.add(idx);
+    });
     records.filter(r => Number(r.stopNum) === -777).forEach(r => {
       try {
         const d = JSON.parse(r.departTime);
