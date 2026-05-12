@@ -1089,11 +1089,10 @@
 </main>
 
 <!-- 帰着後車内確認バナー -->
-<div id="arrival-check-banner" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;align-items:center;justify-content:center;">
-  <div style="background:#e65100;color:#fff;border-radius:20px;padding:32px 28px 28px;max-width:320px;width:88%;box-shadow:0 8px 32px rgba(0,0,0,0.4);text-align:center;position:relative;">
-    <button onclick="closeArrivalCheckBanner()" style="position:absolute;top:12px;right:16px;background:none;border:none;color:#fff;font-size:26px;cursor:pointer;line-height:1;opacity:0.85;">×</button>
-    <div style="font-size:36px;margin-bottom:14px;">🚌</div>
-    <div style="font-size:19px;font-weight:bold;line-height:1.6;">お疲れ様でした。<br>車内の確認を<br>お願いします。</div>
+<div id="arrival-check-banner" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9998;align-items:center;justify-content:center;">
+  <div style="position:relative;max-width:340px;width:90%;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <button onclick="closeArrivalCheckBanner()" style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.45);border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;z-index:1;">×</button>
+    <img src="images/arrival.jpg" alt="車内確認" style="width:100%;display:block;">
   </div>
 </div>
 
