@@ -457,8 +457,15 @@
     /* 復帰ボタン */
     .restore-btn { padding: 10px 20px; font-size: 14px; font-weight: 700; background: #ff5722; color: #fff; border: none; border-radius: 10px; cursor: pointer; }
     .restore-btn:hover { background: #e64a19; }
-    /* 欠席バナー */
+    /* 欠席バナー（ルートカード内） */
     .absence-banner { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+    /* 欠席通知バー（固定・添乗者モードのみ） */
+    #absence-alert-bar { position: fixed; left: 0; right: 0; z-index: 101; }
+    .absence-alert-item { background: #b71c1c; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 11px 18px; font-size: 14px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.25); animation: absenceSlideIn 0.25s ease; }
+    .absence-alert-item span { flex: 1; }
+    .absence-alert-close { background: rgba(255,255,255,0.2); border: none; color: #fff; font-size: 18px; font-weight: bold; cursor: pointer; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 12px; }
+    .absence-alert-close:hover { background: rgba(255,255,255,0.35); }
+    @keyframes absenceSlideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
     /* 帰着確定：操作ボタン非表示 */
     body.finalized .confirm-route-btn { display: none !important; }
     body.finalized #finalize-area { display: none !important; }
@@ -864,6 +871,7 @@
   <!-- 右：日付バッジ -->
   <span class="badge header-right" id="today-badge"></span>
 </header>
+<div id="absence-alert-bar" class="no-print"></div>
 
 <div id="toast-container"></div>
 
@@ -1112,6 +1120,7 @@ let isKirariMode = false;  // false=添乗者モード, true=きらりモード
 let isFinalized  = false;  // 帰着確定済み
 let isShared     = false;  // 出発・共有開始済み
 let absenceRecords = {};   // { "stopIdx_personName": reason_string }
+let dismissedAbsences = new Set(); // 添乗者が×で閉じた欠席通知
 let _pendingAbsenceStopIdx = null;
 let _pendingAbsenceName    = null;
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyhGI6v3kfhx0oetWEsKgj_gtcw4A9nwdfKzbCY8O7YD6pFA9rce3py-xKjxzKU_o_eCQ/exec';
@@ -2651,7 +2660,7 @@ async function syncOperation() {
       } catch(e) {}
     });
     applyAbsenceState();
-    updateAbsenceBanner();
+    updateAbsenceBanner(); updateAbsenceAlertBar();
     reoptimizeAfterAbsence();
 
     // スナップショット行（stopNum === -999）からルートを復元
@@ -2851,7 +2860,7 @@ function updateModeUI() {
     routeBody?.classList.remove('view-mode');
   }
   updateFinalizeButton();
-  updateAbsenceBanner();
+  updateAbsenceBanner(); updateAbsenceAlertBar();
 }
 
 // ─────────────────────────────────────────
@@ -2986,7 +2995,7 @@ async function confirmAbsence(reason) {
   const key = `${stopIdx}_${personName}`;
   absenceRecords[key] = reason;
   applyAbsenceState();
-  updateAbsenceBanner();
+  updateAbsenceBanner(); updateAbsenceAlertBar();
   const payload = JSON.stringify({
     date: getSelectedDate(),
     stopNum: -777,
@@ -3198,6 +3207,48 @@ function updateAbsenceBanner() {
   banner.style.display = '';
 }
 
+// 固定欠席通知バー（添乗者モードのみ・×で個別に閉じるまで常時表示）
+function updateAbsenceAlertBar() {
+  const bar = document.getElementById('absence-alert-bar');
+  if (!bar) return;
+
+  // きらりモードは非表示
+  if (isKirariMode) { bar.innerHTML = ''; _positionAbsenceAlertBar(); return; }
+
+  const undismissed = Object.entries(absenceRecords)
+    .filter(([key]) => !dismissedAbsences.has(key));
+
+  if (!undismissed.length) { bar.innerHTML = ''; _positionAbsenceAlertBar(); return; }
+
+  bar.innerHTML = undismissed.map(([key, reason]) => {
+    const sep  = key.indexOf('_');
+    const name = key.substring(sep + 1);
+    return `<div class="absence-alert-item">
+      <span>🔔 ${esc(name)}様の欠席連絡が入りました（${esc(reason)}）</span>
+      <button class="absence-alert-close" data-key="${esc(key)}" aria-label="閉じる">×</button>
+    </div>`;
+  }).join('');
+
+  bar.querySelectorAll('.absence-alert-close').forEach(btn => {
+    btn.addEventListener('click', () => {
+      dismissedAbsences.add(btn.dataset.key);
+      updateAbsenceAlertBar();
+    });
+  });
+
+  _positionAbsenceAlertBar();
+}
+
+function _positionAbsenceAlertBar() {
+  const bar    = document.getElementById('absence-alert-bar');
+  const header = document.querySelector('.app-header');
+  if (bar && header) {
+    bar.style.top = header.getBoundingClientRect().bottom + 'px';
+  }
+}
+
+window.addEventListener('resize', _positionAbsenceAlertBar);
+
 async function checkConfirmedRoute(dateStr) {
   const today = dateStr || getSelectedDate();
   try {
@@ -3249,7 +3300,7 @@ async function checkConfirmedRoute(dateStr) {
     updateModeUI();
     applyDepartureState();
     applyAbsenceState();
-    updateAbsenceBanner();
+    updateAbsenceBanner(); updateAbsenceAlertBar();
     redrawMapRoute(gCurrentStops);
 
     if (!syncTimerId) {
