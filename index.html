@@ -468,6 +468,8 @@
     .absence-alert-close { background: rgba(255,255,255,0.2); border: none; color: #fff; font-size: 18px; font-weight: bold; cursor: pointer; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 12px; }
     .absence-alert-close:hover { background: rgba(255,255,255,0.35); }
     @keyframes absenceSlideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+    .moving-now { animation: blink 1s infinite; color: #e74c3c !important; font-weight: bold !important; }
     /* 帰着確定：操作ボタン非表示 */
     body.finalized .confirm-route-btn { display: none !important; }
     body.finalized #finalize-area { display: none !important; }
@@ -2429,14 +2431,16 @@ function renderRouteList(stops, routeType, arrTimeStr) {
       if (stop.skipped) {
         connEl = document.createElement('div');
         connEl.className = 'skip-connector';
+        connEl.dataset.connDest = idx;
         connEl.innerHTML = `<div class="skip-connector-line"></div><span class="skip-connector-label">↷ 全員欠席のためスキップ</span>`;
       } else if (stop.travelMin) {
         connEl = document.createElement('div');
         connEl.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;padding-left:17px;';
+        connEl.dataset.connDest = idx;
         connEl.innerHTML = `
           <div style="display:flex;align-items:center;gap:8px;padding:2px 0;">
             <div style="width:1.5px;min-height:32px;background:var(--gray-200);margin-left:0;"></div>
-            <span style="font-size:12px;color:var(--gray-600);">🚗 移動 ${stop.travelMin}分 / ${stop.dist}</span>
+            <span class="conn-travel-span" style="font-size:12px;color:var(--gray-600);">🚗 移動 ${stop.travelMin}分 / ${stop.dist}</span>
           </div>`;
       }
       if (connEl) ul.appendChild(connEl);
@@ -2827,6 +2831,15 @@ function applyDepartureState() {
   });
   updateFinalizeButton();
   updateCompletedRouteOverlay();
+
+  // ─── 現在移動中区間の点滅 ───
+  document.querySelectorAll('.conn-travel-span').forEach(el => el.classList.remove('moving-now'));
+  // 出発済みがあり、次の地点が存在する場合のみ点滅
+  if (effKeys.length > 0 && nextExpected !== undefined && nextExpected !== 0) {
+    const conn = document.querySelector(`[data-conn-dest="${nextExpected}"]`);
+    const span = conn?.querySelector('.conn-travel-span');
+    if (span) span.classList.add('moving-now');
+  }
 }
 
 function startOperationSync() {
