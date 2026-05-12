@@ -3333,18 +3333,23 @@ function updateAbsenceAlertBar() {
 
   // きらりモード：確認済み（添乗者が×を押した）をまだ閉じていないものを緑バナーで表示
   if (isKirariMode) {
-    const unread = [...acknowledgedAbsences].filter(key => !kirariDismissedAck.has(key));
+    // kirariDismissedAck はpersonNameのみをキーとして管理
+    const unread = [...acknowledgedAbsences].filter(key => {
+      const name = key.substring(key.indexOf('_') + 1);
+      return !kirariDismissedAck.has(name);
+    });
     if (!unread.length) { bar.innerHTML = ''; _positionAbsenceAlertBar(); return; }
     bar.innerHTML = unread.map(key => {
       const name = key.substring(key.indexOf('_') + 1);
       return `<div class="absence-ack-item">
         <span>✅ ${esc(name)}様の欠席連絡を確認しました</span>
-        <button class="absence-alert-close" data-key="${esc(key)}" aria-label="閉じる">×</button>
+        <button class="absence-alert-close" data-name="${esc(name)}" aria-label="閉じる">×</button>
       </div>`;
     }).join('');
     bar.querySelectorAll('.absence-alert-close').forEach(btn => {
       btn.addEventListener('click', () => {
-        kirariDismissedAck.add(btn.dataset.key);
+        const name = btn.dataset.name;
+        kirariDismissedAck.add(name);
         try { sessionStorage.setItem('kirariDismissedAck', JSON.stringify([...kirariDismissedAck])); } catch(e) {}
         updateAbsenceAlertBar();
       });
