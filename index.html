@@ -2747,26 +2747,31 @@ function applyDepartureState() {
   const lastIdx = allIdx.length > 0 ? Math.max(...allIdx) : -1;
 
   const departedSet = new Set(Object.keys(departureRecords).map(Number));
-  const keys = [...departedSet];
 
-  // 出発済み最大インデックス（センター以外）
-  const maxDeparted = keys.length ? Math.max(...keys) : -1;
+  // センター停留所はローカル押下のみ「出発済み」扱い（GASロード分は除外）
+  const effectiveDeparted = new Set(
+    [...departedSet].filter(idx => idx !== 0 && idx !== lastIdx || localDeparted.has(idx))
+  );
 
-  // 順序制御: スキップなし・未出発の中で最小インデックスが次の出発対象
+  // 出発済み最大インデックス（effectiveDeparted 基準）
+  const effKeys = [...effectiveDeparted];
+  const maxDeparted = effKeys.length ? Math.max(...effKeys) : -1;
+
+  // 順序制御: effectiveDeparted で未出発・スキップなしの中で最小インデックス
   const orderedIdx = allIdx.slice().sort((a, b) => a - b);
-  const nextExpected = orderedIdx.find(idx => {
-    if (departedSet.has(idx)) return false;
-    const li = document.querySelector(`.route-item[data-stop-idx="${idx}"]`);
-    return !li?.classList.contains('all-absent-stop');
+  const nextExpected = orderedIdx.find(i => {
+    if (effectiveDeparted.has(i)) return false;
+    const el = document.querySelector(`.route-item[data-stop-idx="${i}"]`);
+    return !el?.classList.contains('all-absent-stop');
   });
 
   items.forEach(li => {
     const idx = parseInt(li.dataset.stopIdx);
     const btn = li.querySelector('.depart-btn');
     const sub = li.querySelector('.depart-time-sub');
-
-    // センター（出発=0・帰着=lastIdx）はグレー化しない
     const isCenterStop = (idx === 0 || idx === lastIdx);
+
+    // ─── グレー化（中間停留所のみ）───
     if (!isCenterStop) {
       if (maxDeparted >= 0 && idx <= maxDeparted) {
         li.classList.add('departed');
@@ -2778,15 +2783,11 @@ function applyDepartureState() {
       }
     }
 
-    // センター停留所はローカルで押した記録がある場合のみ出発済みとして扱う
-    const isActuallyDeparted = departedSet.has(idx) &&
-      (!isCenterStop || localDeparted.has(idx));
-
-    if (isActuallyDeparted) {
-      // 出発済み: ボタンにラベル+時刻を1行で表示
+    if (effectiveDeparted.has(idx)) {
+      // ─── 出発済み ───
       const isArrival = btn?.dataset.isArrival === '1';
       const doneLabel = isArrival ? '✅ 到着済み' : '✅ 出発済み';
-      const t = String(departureRecords[idx]);
+      const t = String(departureRecords[idx] ?? '');
       const hhmm = /^\d{1,2}:\d{2}$/.test(t) ? t : '';
       if (btn) {
         btn.disabled = true;
@@ -2794,16 +2795,23 @@ function applyDepartureState() {
         btn.textContent = hhmm ? `${doneLabel} ${hhmm}` : doneLabel;
       }
       if (sub) {
-        // きらりモードはボタン非表示なのでsubにラベル+時刻を表示、添乗者モードはsubを空に
         sub.textContent = (isKirariMode && hhmm) ? `${doneLabel} ${hhmm}` : '';
         if (isKirariMode && hhmm) {
-          sub.style.fontSize = '12px';
-          sub.style.color = 'var(--success)';
+          sub.style.fontSize  = '12px';
+          sub.style.color     = 'var(--success)';
           sub.style.fontWeight = '700';
         }
       }
+    } else if (isCenterStop) {
+      // ─── センター停留所：未押下 → 常に有効表示 ───
+      if (btn) {
+        btn.disabled = false;
+        btn.style.display = '';
+        btn.textContent = btn.dataset.isArrival === '1' ? '到着' : '出発';
+      }
+      if (sub) sub.textContent = '';
     } else if (btn) {
-      // 未出発: 次の停留所のみ表示・有効、それ以外は非表示
+      // ─── 中間停留所：次の地点のみ表示、それ以外は非表示 ───
       const isSkipped = li.classList.contains('all-absent-stop');
       const isNext = !isSkipped && (nextExpected === undefined || idx === nextExpected);
       btn.disabled = !isNext;
