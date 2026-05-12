@@ -1088,6 +1088,15 @@
 
 </main>
 
+<!-- 帰着後車内確認バナー -->
+<div id="arrival-check-banner" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;align-items:center;justify-content:center;">
+  <div style="background:#e65100;color:#fff;border-radius:20px;padding:32px 28px 28px;max-width:320px;width:88%;box-shadow:0 8px 32px rgba(0,0,0,0.4);text-align:center;position:relative;">
+    <button onclick="closeArrivalCheckBanner()" style="position:absolute;top:12px;right:16px;background:none;border:none;color:#fff;font-size:26px;cursor:pointer;line-height:1;opacity:0.85;">×</button>
+    <div style="font-size:36px;margin-bottom:14px;">🚌</div>
+    <div style="font-size:19px;font-weight:bold;line-height:1.6;">お疲れ様でした。<br>車内の確認を<br>お願いします。</div>
+  </div>
+</div>
+
 <!-- 欠席理由選択モーダル -->
 <div id="absence-reason-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;padding:20px 20px 16px;max-width:300px;width:88%;box-shadow:0 8px 32px rgba(0,0,0,0.25);">
@@ -2627,6 +2636,10 @@ async function recordDeparture(stopIdx) {
   departureRecords[stopIdx] = hhmm;
   localDeparted.add(stopIdx);
   applyDepartureState();
+  // 帰着ボタン（最終停留所）なら車内確認バナーを表示
+  const allIdx = Array.from(document.querySelectorAll('.route-item[data-stop-idx]')).map(li => parseInt(li.dataset.stopIdx));
+  const lastIdx = allIdx.length > 0 ? Math.max(...allIdx) : -1;
+  if (stopIdx === lastIdx) showArrivalCheckBanner();
   try {
     await fetch(GAS_URL, { method: 'POST', mode: 'no-cors',
       body: JSON.stringify({ date: today, stopNum: stopIdx, departTime: hhmm }) });
@@ -2983,6 +2996,16 @@ async function confirmRoute() {
     btn.textContent = '🚀 出発・共有開始';
     toast('確定の保存に失敗しました', 'error');
   }
+}
+
+// 帰着後車内確認バナー
+function showArrivalCheckBanner() {
+  const el = document.getElementById('arrival-check-banner');
+  if (el) { el.style.display = 'flex'; }
+}
+function closeArrivalCheckBanner() {
+  const el = document.getElementById('arrival-check-banner');
+  if (el) { el.style.display = 'none'; }
 }
 
 // 帰着確定
