@@ -1143,6 +1143,8 @@ let absenceRecords = {};   // { "stopIdx_personName": reason_string }
 let dismissedAbsences    = new Set(); // 添乗者が×で閉じた欠席通知
 let acknowledgedAbsences = new Set(); // 添乗者が確認済みにした欠席（GAS -776）
 let kirariDismissedAck  = new Set(); // きらりモードで×で閉じた確認済みバナー
+// リロード後も×閉じ状態を維持するためsessionStorageから復元
+try { JSON.parse(sessionStorage.getItem('kirariDismissedAck') || '[]').forEach(k => kirariDismissedAck.add(k)); } catch(e) {}
 let _pendingAbsenceStopIdx = null;
 let _pendingAbsenceName    = null;
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyhGI6v3kfhx0oetWEsKgj_gtcw4A9nwdfKzbCY8O7YD6pFA9rce3py-xKjxzKU_o_eCQ/exec';
@@ -3344,6 +3346,7 @@ function updateAbsenceAlertBar() {
     bar.querySelectorAll('.absence-alert-close').forEach(btn => {
       btn.addEventListener('click', () => {
         kirariDismissedAck.add(btn.dataset.key);
+        try { sessionStorage.setItem('kirariDismissedAck', JSON.stringify([...kirariDismissedAck])); } catch(e) {}
         updateAbsenceAlertBar();
       });
     });
