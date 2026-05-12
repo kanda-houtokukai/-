@@ -74,9 +74,9 @@ function doGet(e) {
         continue;
       }
 
-      // confirmed モード: -888, -666, -665, -777, >=0 を返す
+      // confirmed モード: -888, -776, -666, -665, -777, >=0 を返す
       if (confirmed) {
-        if (stopNum === -888 || stopNum === -666 || stopNum === -665 || stopNum === -777 || stopNum >= 0) {
+        if (stopNum === -888 || stopNum === -776 || stopNum === -666 || stopNum === -665 || stopNum === -777 || stopNum >= 0) {
           records.push({ date: rowDate, stopNum: stopNum, departTime: departTime, timestamp: ts });
         }
         continue;
@@ -164,6 +164,31 @@ function doPost(e) {
             sheet.getRange(rowIdx2, 3).setValue(departTime);
             sheet.getRange(rowIdx2, 4).setValue(now);
             return buildJsonResponse({ status: 'updated', row: rowIdx2 });
+          }
+        }
+      }
+    }
+
+    // 欠席確認済み (-776) は同日・同人物の重複を防ぐ
+    if (stopNum === -776) {
+      var lastRow4 = sheet.getLastRow();
+      if (lastRow4 >= 2) {
+        var data4 = sheet.getRange(2, 1, lastRow4 - 1, 3).getValues();
+        for (var m = 0; m < data4.length; m++) {
+          var rowDate4 = '';
+          if (data4[m][0] instanceof Date) {
+            rowDate4 = Utilities.formatDate(data4[m][0], tz, 'yyyy-MM-dd');
+          } else {
+            rowDate4 = String(data4[m][0]).trim();
+          }
+          if (rowDate4 === date && Number(data4[m][1]) === -776) {
+            try {
+              var existing4 = JSON.parse(String(data4[m][2]));
+              var incoming4 = JSON.parse(departTime);
+              if (existing4.stopIdx === incoming4.stopIdx && existing4.personName === incoming4.personName) {
+                return buildJsonResponse({ status: 'duplicate', skipped: true });
+              }
+            } catch (parseErr4) {}
           }
         }
       }

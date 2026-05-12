@@ -451,6 +451,7 @@
     .absence-reason-btn { width: 100%; padding: 10px 14px; background: #fff3e0; color: #bf360c; border: 1px solid #ffcc80; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
     .absence-reason-btn:hover { background: #ffe0b2; }
     .absence-reason-tag { display: inline-block; font-size: 10px; color: #c62828; background: #ffebee; border: 1px solid #ef9a9a; border-radius: 4px; padding: 0px 5px; margin-left: 5px; vertical-align: middle; }
+    .absence-ack-tag { display: inline-block; font-size: 10px; color: #2e7d32; background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 4px; padding: 0px 5px; margin-left: 4px; vertical-align: middle; font-weight: 700; }
     /* 帰着ボタン */
     .finalize-btn { padding: 12px 24px; font-size: 15px; font-weight: 700; background: #e53935; color: #fff; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 2px 6px rgba(229,57,53,.4); }
     .finalize-btn:hover:not(:disabled) { background: #b71c1c; }
@@ -1120,7 +1121,8 @@ let isKirariMode = false;  // false=添乗者モード, true=きらりモード
 let isFinalized  = false;  // 帰着確定済み
 let isShared     = false;  // 出発・共有開始済み
 let absenceRecords = {};   // { "stopIdx_personName": reason_string }
-let dismissedAbsences = new Set(); // 添乗者が×で閉じた欠席通知
+let dismissedAbsences    = new Set(); // 添乗者が×で閉じた欠席通知
+let acknowledgedAbsences = new Set(); // 添乗者が確認済みにした欠席（GAS -776）
 let _pendingAbsenceStopIdx = null;
 let _pendingAbsenceName    = null;
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyhGI6v3kfhx0oetWEsKgj_gtcw4A9nwdfKzbCY8O7YD6pFA9rce3py-xKjxzKU_o_eCQ/exec';
@@ -2659,6 +2661,15 @@ async function syncOperation() {
         }
       } catch(e) {}
     });
+    // 欠席確認済み記録を同期 (-776)
+    records.filter(r => Number(r.stopNum) === -776).forEach(r => {
+      try {
+        const d = JSON.parse(r.departTime);
+        if (d.personName !== undefined && d.stopIdx !== undefined) {
+          acknowledgedAbsences.add(`${d.stopIdx}_${d.personName}`);
+        }
+      } catch(e) {}
+    });
     applyAbsenceState();
     updateAbsenceBanner(); updateAbsenceAlertBar();
     reoptimizeAfterAbsence();
@@ -3180,6 +3191,18 @@ function applyAbsenceState() {
           if (nameEl) nameEl.after(tag);
         }
         tag.textContent = reason;
+        // 添乗者が確認済みの場合「確認済み」バッジを表示（きらりモードで通知）
+        let ackTag = row.querySelector('.absence-ack-tag');
+        if (acknowledgedAbsences.has(key)) {
+          if (!ackTag) {
+            ackTag = document.createElement('span');
+            ackTag.className = 'absence-ack-tag';
+            tag.after(ackTag);
+          }
+          ackTag.textContent = '✅ 確認済み';
+        } else if (ackTag) {
+          ackTag.remove();
+        }
       }
     });
     // 全員欠席なら停車地全体を薄く
@@ -3230,9 +3253,21 @@ function updateAbsenceAlertBar() {
   }).join('');
 
   bar.querySelectorAll('.absence-alert-close').forEach(btn => {
-    btn.addEventListener('click', () => {
-      dismissedAbsences.add(btn.dataset.key);
+    btn.addEventListener('click', async () => {
+      const key = btn.dataset.key;
+      dismissedAbsences.add(key);
       updateAbsenceAlertBar();
+      // GAS に確認済み記録 (-776) を保存 → きらりモードへ通知
+      const sep = key.indexOf('_');
+      const stopIdx    = parseInt(key.substring(0, sep));
+      const personName = key.substring(sep + 1);
+      try {
+        await fetch(GAS_URL, {
+          method: 'POST', mode: 'no-cors',
+          body: JSON.stringify({ date: getSelectedDate(), stopNum: -776,
+            departTime: JSON.stringify({ stopIdx, personName }) })
+        });
+      } catch(e) { console.warn('欠席確認送信失敗:', e); }
     });
   });
 
@@ -3282,7 +3317,7 @@ async function checkConfirmedRoute(dateStr) {
     if (isFinalized) document.body.classList.add('finalized');
     else document.body.classList.remove('finalized');
 
-    // 出発記録・欠席記録を同じレスポンスから即時反映（別途syncOperation不要）
+    // 出発記録・欠席記録・確認済みを同じレスポンスから即時反映（別途syncOperation不要）
     records.filter(r => Number(r.stopNum) >= 0)
            .forEach(r => { departureRecords[Number(r.stopNum)] = r.departTime; });
     records.filter(r => Number(r.stopNum) === -777).forEach(r => {
@@ -3290,6 +3325,14 @@ async function checkConfirmedRoute(dateStr) {
         const d = JSON.parse(r.departTime);
         if (d.personName !== undefined && d.stopIdx !== undefined) {
           absenceRecords[`${d.stopIdx}_${d.personName}`] = d.reason || 'その他';
+        }
+      } catch(e) {}
+    });
+    records.filter(r => Number(r.stopNum) === -776).forEach(r => {
+      try {
+        const d = JSON.parse(r.departTime);
+        if (d.personName !== undefined && d.stopIdx !== undefined) {
+          acknowledgedAbsences.add(`${d.stopIdx}_${d.personName}`);
         }
       } catch(e) {}
     });
