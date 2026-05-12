@@ -3400,10 +3400,17 @@ function _positionAbsenceAlertBar() {
 
 window.addEventListener('resize', _positionAbsenceAlertBar);
 
-async function checkConfirmedRoute(dateStr) {
+async function checkConfirmedRoute(dateStr, timeoutMs = 5000) {
   const today = dateStr || getSelectedDate();
   try {
-    const res = await fetch(`${GAS_URL}?date=${today}&confirmed=true`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    let res;
+    try {
+      res = await fetch(`${GAS_URL}?date=${today}&confirmed=true`, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (!res.ok) return false;
     const records = await res.json();
     console.log('[確定ルート確認] date:', today, 'records:', records);
@@ -3474,7 +3481,11 @@ async function checkConfirmedRoute(dateStr) {
     toast('📋 確定済みルートを表示しています', 'info');
     return true;
   } catch (err) {
-    console.warn('[確定ルート確認] エラー:', err);
+    if (err.name === 'AbortError') {
+      console.warn('[確定ルート確認] タイムアウト（5秒）');
+    } else {
+      console.warn('[確定ルート確認] エラー:', err);
+    }
     return false;
   }
 }
@@ -3488,7 +3499,7 @@ async function checkAndShowConfirmedRoute(dateStr) {
   statusEl.style.background = '#e3f2fd';
   statusEl.style.color = '#0d47a1';
   statusEl.style.borderColor = '#90caf9';
-  statusEl.textContent = '🔍 確定ルートを確認中…';
+  statusEl.innerHTML = '<span class="spinner" style="border-color:rgba(13,71,161,.2);border-top-color:#0d47a1;vertical-align:middle;margin-right:6px;"></span>📡 運行データを確認中...';
 
   // 既存のルート状態をリセット
   gCurrentStops = null;
