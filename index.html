@@ -463,6 +463,7 @@
     /* 欠席通知バー（固定・添乗者モードのみ） */
     #absence-alert-bar { position: fixed; left: 0; right: 0; z-index: 101; }
     .absence-alert-item { background: #b71c1c; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 11px 18px; font-size: 14px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.25); animation: absenceSlideIn 0.25s ease; }
+    .absence-ack-item   { background: #2e7d32; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 11px 18px; font-size: 14px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.25); animation: absenceSlideIn 0.25s ease; }
     .absence-alert-item span { flex: 1; }
     .absence-alert-close { background: rgba(255,255,255,0.2); border: none; color: #fff; font-size: 18px; font-weight: bold; cursor: pointer; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 12px; }
     .absence-alert-close:hover { background: rgba(255,255,255,0.35); }
@@ -1124,6 +1125,7 @@ let isShared     = false;  // 出発・共有開始済み
 let absenceRecords = {};   // { "stopIdx_personName": reason_string }
 let dismissedAbsences    = new Set(); // 添乗者が×で閉じた欠席通知
 let acknowledgedAbsences = new Set(); // 添乗者が確認済みにした欠席（GAS -776）
+let kirariDismissedAck  = new Set(); // きらりモードで×で閉じた確認済みバナー
 let _pendingAbsenceStopIdx = null;
 let _pendingAbsenceName    = null;
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyhGI6v3kfhx0oetWEsKgj_gtcw4A9nwdfKzbCY8O7YD6pFA9rce3py-xKjxzKU_o_eCQ/exec';
@@ -3274,8 +3276,26 @@ function updateAbsenceAlertBar() {
   const bar = document.getElementById('absence-alert-bar');
   if (!bar) return;
 
-  // きらりモードは非表示
-  if (isKirariMode) { bar.innerHTML = ''; _positionAbsenceAlertBar(); return; }
+  // きらりモード：確認済み（添乗者が×を押した）をまだ閉じていないものを緑バナーで表示
+  if (isKirariMode) {
+    const unread = [...acknowledgedAbsences].filter(key => !kirariDismissedAck.has(key));
+    if (!unread.length) { bar.innerHTML = ''; _positionAbsenceAlertBar(); return; }
+    bar.innerHTML = unread.map(key => {
+      const name = key.substring(key.indexOf('_') + 1);
+      return `<div class="absence-ack-item">
+        <span>✅ ${esc(name)}様の欠席連絡を確認しました</span>
+        <button class="absence-alert-close" data-key="${esc(key)}" aria-label="閉じる">×</button>
+      </div>`;
+    }).join('');
+    bar.querySelectorAll('.absence-alert-close').forEach(btn => {
+      btn.addEventListener('click', () => {
+        kirariDismissedAck.add(btn.dataset.key);
+        updateAbsenceAlertBar();
+      });
+    });
+    _positionAbsenceAlertBar();
+    return;
+  }
 
   const undismissed = Object.entries(absenceRecords)
     .filter(([key]) => !dismissedAbsences.has(key));
