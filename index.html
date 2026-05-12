@@ -3240,8 +3240,8 @@ function applyAbsenceState() {
         }
       }
     });
-    // 全員欠席なら停車地全体を薄く
-    const allAbsent = stop.children.every(c => absenceRecords[`${idx}_${c.name}`]);
+    // 全員欠席なら停車地全体を薄く（children が空の場合は対象外）
+    const allAbsent = stop.children.length > 0 && stop.children.every(c => absenceRecords[`${idx}_${c.name}`]);
     if (allAbsent) li.classList.add('all-absent-stop');
     else li.classList.remove('all-absent-stop');
   });
