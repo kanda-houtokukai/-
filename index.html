@@ -438,6 +438,8 @@
     body.kirari-mode .depart-btn { display: none !important; }
     /* 添乗者モード：欠席ボタン非表示 */
     body.tanjosha-mode .absence-btn { display: none !important; }
+    /* 事業所電話ボタン：添乗者モードのみ表示 */
+    body.tanjosha-mode #call-button { display: inline-block !important; }
     /* 欠席した子ども */
     .absent-child strong { text-decoration: line-through; }
     .absent-child { opacity: 0.5; }
@@ -876,6 +878,8 @@
   <span class="badge header-right" id="today-badge"></span>
 </header>
 <div id="absence-alert-bar" class="no-print"></div>
+
+<a href="tel:0947-28-5512" id="call-button" class="no-print" style="position:fixed;bottom:20px;left:20px;z-index:9999;border-radius:50px;padding:12px 20px;background-color:#27ae60;color:white;font-size:16px;font-weight:bold;border:none;cursor:pointer;text-decoration:none;display:none;">📞 事業所へ電話</a>
 
 <div id="toast-container"></div>
 
