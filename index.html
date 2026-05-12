@@ -1113,6 +1113,7 @@ let gMarkers         = [];   // カスタムマーカー（クリア用）
 let gDirectionsResult = null; // 最後の DirectionsResult（グレー化用）
 let gGreyPolyline     = null; // 通過済み区間グレーオーバーレイ
 let departureRecords = {}; // { stopIdx: 'HH:MM' } 運行記録
+let localDeparted   = new Set(); // 今回セッションで押した停留所（センター判定用）
 let syncTimerId = null;    // 自動同期タイマー
 let gCurrentStops = null;  // 現在のルート stops（スナップショット用）
 let gCurrentRouteType = null;
@@ -2614,17 +2615,14 @@ async function recordDeparture(stopIdx) {
   const hhmm  = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
   const today = getSelectedDate();
   departureRecords[stopIdx] = hhmm;
+  localDeparted.add(stopIdx);
   applyDepartureState();
-  const payload = JSON.stringify({ date: today, stopNum: stopIdx, departTime: hhmm });
-  console.log('[出発記録] POST送信:', payload);
   try {
-    // no-cors + application/json はブラウザがブロックするため headers を省略
-    await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: payload });
-    console.log('[出発記録] POST完了');
-    toast(`地点${stopIdx} 出発 ${hhmm} を記録しました`, 'success');
+    await fetch(GAS_URL, { method: 'POST', mode: 'no-cors',
+      body: JSON.stringify({ date: today, stopNum: stopIdx, departTime: hhmm }) });
+    console.log('[出発記録] POST完了 stopIdx:', stopIdx, hhmm);
   } catch (err) {
     console.error('[出発記録] POST失敗:', err);
-    toast('記録の送信に失敗しました', 'error');
   }
 }
 
@@ -2666,7 +2664,9 @@ async function syncOperation() {
       try {
         const d = JSON.parse(r.departTime);
         if (d.personName !== undefined && d.stopIdx !== undefined) {
-          acknowledgedAbsences.add(`${d.stopIdx}_${d.personName}`);
+          const key = `${d.stopIdx}_${d.personName}`;
+          acknowledgedAbsences.add(key);
+          dismissedAbsences.add(key); // バナーを再表示しない
         }
       } catch(e) {}
     });
@@ -2742,13 +2742,23 @@ function updateCompletedRouteOverlay() {
 }
 
 function applyDepartureState() {
-  const keys = Object.keys(departureRecords).map(Number);
-  if (!keys.length) return;
-  const maxDeparted = Math.max(...keys);
-
   const items = document.querySelectorAll('.route-item[data-stop-idx]');
   const allIdx = Array.from(items).map(li => parseInt(li.dataset.stopIdx));
   const lastIdx = allIdx.length > 0 ? Math.max(...allIdx) : -1;
+
+  const departedSet = new Set(Object.keys(departureRecords).map(Number));
+  const keys = [...departedSet];
+
+  // 出発済み最大インデックス（センター以外）
+  const maxDeparted = keys.length ? Math.max(...keys) : -1;
+
+  // 順序制御: スキップなし・未出発の中で最小インデックスが次の出発対象
+  const orderedIdx = allIdx.slice().sort((a, b) => a - b);
+  const nextExpected = orderedIdx.find(idx => {
+    if (departedSet.has(idx)) return false;
+    const li = document.querySelector(`.route-item[data-stop-idx="${idx}"]`);
+    return !li?.classList.contains('all-absent-stop');
+  });
 
   items.forEach(li => {
     const idx = parseInt(li.dataset.stopIdx);
@@ -2758,7 +2768,7 @@ function applyDepartureState() {
     // センター（出発=0・帰着=lastIdx）はグレー化しない
     const isCenterStop = (idx === 0 || idx === lastIdx);
     if (!isCenterStop) {
-      if (idx <= maxDeparted) {
+      if (maxDeparted >= 0 && idx <= maxDeparted) {
         li.classList.add('departed');
         li.querySelectorAll('.absence-btn:not(:disabled)').forEach(ab => {
           ab.disabled = true; ab.style.pointerEvents = 'none';
@@ -2768,21 +2778,37 @@ function applyDepartureState() {
       }
     }
 
-    if (departureRecords[idx] !== undefined) {
+    // センター停留所はローカルで押した記録がある場合のみ出発済みとして扱う
+    const isActuallyDeparted = departedSet.has(idx) &&
+      (!isCenterStop || localDeparted.has(idx));
+
+    if (isActuallyDeparted) {
+      // 出発済み: ボタンにラベル+時刻を1行で表示
       const isArrival = btn?.dataset.isArrival === '1';
       const doneLabel = isArrival ? '✅ 到着済み' : '✅ 出発済み';
-      if (btn) { btn.disabled = true; btn.textContent = doneLabel; }
+      const t = String(departureRecords[idx]);
+      const hhmm = /^\d{1,2}:\d{2}$/.test(t) ? t : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.style.display = '';
+        btn.textContent = hhmm ? `${doneLabel} ${hhmm}` : doneLabel;
+      }
       if (sub) {
-        const t = String(departureRecords[idx]);
-        const hhmm = /^\d{1,2}:\d{2}$/.test(t) ? t : '';
-        // きらりモードはボタンが非表示なのでラベル+時刻をsubに表示
-        sub.textContent = (isKirariMode && hhmm) ? `${doneLabel} ${hhmm}` : hhmm;
-        if (hhmm) {
+        // きらりモードはボタン非表示なのでsubにラベル+時刻を表示、添乗者モードはsubを空に
+        sub.textContent = (isKirariMode && hhmm) ? `${doneLabel} ${hhmm}` : '';
+        if (isKirariMode && hhmm) {
           sub.style.fontSize = '12px';
           sub.style.color = 'var(--success)';
           sub.style.fontWeight = '700';
         }
       }
+    } else if (btn) {
+      // 未出発: 次の停留所のみ表示・有効、それ以外は非表示
+      const isSkipped = li.classList.contains('all-absent-stop');
+      const isNext = !isSkipped && (nextExpected === undefined || idx === nextExpected);
+      btn.disabled = !isNext;
+      btn.style.display = isNext ? '' : 'none';
+      if (sub) sub.textContent = '';
     }
   });
   updateFinalizeButton();
@@ -2791,6 +2817,7 @@ function applyDepartureState() {
 
 function startOperationSync() {
   departureRecords = {};
+  localDeparted = new Set();
   if (syncTimerId) clearInterval(syncTimerId);
   syncOperation(); // 初回即時
   syncTimerId = setInterval(syncOperation, 30000);
@@ -3332,7 +3359,9 @@ async function checkConfirmedRoute(dateStr) {
       try {
         const d = JSON.parse(r.departTime);
         if (d.personName !== undefined && d.stopIdx !== undefined) {
-          acknowledgedAbsences.add(`${d.stopIdx}_${d.personName}`);
+          const key = `${d.stopIdx}_${d.personName}`;
+          acknowledgedAbsences.add(key);
+          dismissedAbsences.add(key); // バナーを再表示しない
         }
       } catch(e) {}
     });
@@ -3373,6 +3402,7 @@ async function checkAndShowConfirmedRoute(dateStr) {
   gCurrentRouteType = null;
   gCurrentArrTimeStr = null;
   departureRecords = {};
+  localDeparted = new Set();
   if (gGreyPolyline) { gGreyPolyline.setMap(null); gGreyPolyline = null; }
   gDirectionsResult = null;
   if (syncTimerId) { clearInterval(syncTimerId); syncTimerId = null; }
