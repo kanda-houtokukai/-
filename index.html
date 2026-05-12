@@ -481,7 +481,7 @@
     body.not-shared .depart-btn { display: none !important; }
     body.not-shared .absence-btn { display: none !important; }
     /* 固定モード切替ボタン */
-    #mode-toggle-btn { position: fixed; bottom: 20px; right: 20px; z-index: 9999; border-radius: 50px; padding: 12px 20px; font-size: 13px; font-weight: bold; border: none; cursor: pointer; color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.2; text-align: center; }
+    #mode-toggle-btn { position: fixed; bottom: 20px; right: 20px; z-index: 10000; border-radius: 50px; padding: 12px 20px; font-size: 13px; font-weight: bold; border: none; cursor: pointer; color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.2; text-align: center; }
     #mode-toggle-btn .btn-sub { font-size: 10px; font-weight: 500; display: block; opacity: 0.9; margin-top: 2px; }
 
     /* ── Toast ── */
@@ -490,7 +490,7 @@
       bottom: 24px;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 9999;
+      z-index: 9998;
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -1089,7 +1089,7 @@
 </main>
 
 <!-- 欠席理由選択モーダル -->
-<div id="absence-reason-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10001;align-items:center;justify-content:center;">
+<div id="absence-reason-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;padding:20px 20px 16px;max-width:300px;width:88%;box-shadow:0 8px 32px rgba(0,0,0,0.25);">
     <div style="font-size:15px;font-weight:700;margin-bottom:4px;color:#333;">欠席理由を選択</div>
     <div id="absence-modal-name" style="font-size:13px;color:#c62828;font-weight:600;margin-bottom:14px;"></div>
