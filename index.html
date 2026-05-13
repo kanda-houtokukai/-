@@ -2856,7 +2856,21 @@ function applyDepartureState() {
         btn.style.display = '';
         btn.textContent = btn.dataset.isArrival === '1' ? '到着' : '出発';
       }
-      if (sub) sub.textContent = '';
+      if (sub) {
+        // きらりモード：GASから取得した出発時刻をsubに表示（btnはCSS非表示のため）
+        const t = String(departureRecords[idx] ?? '');
+        const hhmm = /^\d{1,2}:\d{2}$/.test(t) ? t : '';
+        if (isKirariMode && hhmm) {
+          const isArrival = btn?.dataset.isArrival === '1';
+          const doneLabel = isArrival ? '✅ 到着済み' : '✅ 出発済み';
+          sub.textContent = `${doneLabel} ${hhmm}`;
+          sub.style.fontSize   = '12px';
+          sub.style.color      = 'var(--success)';
+          sub.style.fontWeight = '700';
+        } else {
+          sub.textContent = '';
+        }
+      }
     } else if (btn) {
       // ─── 中間停留所：次の地点のみ表示、それ以外は非表示 ───
       const isSkipped = li.classList.contains('all-absent-stop');
