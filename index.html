@@ -3574,6 +3574,9 @@ async function checkAndShowConfirmedRoute(dateStr) {
   if (syncTimerId) { clearInterval(syncTimerId); syncTimerId = null; }
   // 日付変更時にきらりモードの既読状態もリセット（checkConfirmedRouteでGASから再取得）
   kirariDismissedAck = new Set();
+  acknowledgedAbsences = new Set();
+  absenceRecords = {};
+  dismissedAbsences = new Set();
 
   const found = await checkConfirmedRoute(dateStr);
   if (found) {
