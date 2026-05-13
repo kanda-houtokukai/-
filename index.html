@@ -3501,6 +3501,10 @@ async function checkAndShowConfirmedRoute(dateStr) {
   const statusEl = document.getElementById('date-confirm-status');
   if (!statusEl) return;
 
+  // GAS応答前に全画面を隠してローディングのみ表示
+  document.getElementById('card-result').style.display   = 'none';
+  document.getElementById('card-children').style.display = 'none';
+
   statusEl.style.display = '';
   statusEl.style.background = '#e3f2fd';
   statusEl.style.color = '#0d47a1';
