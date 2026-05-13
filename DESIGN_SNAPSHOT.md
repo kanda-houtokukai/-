@@ -1,0 +1,564 @@
+# DESIGN_SNAPSHOT.md
+## 送迎ルート最適化システム 設計スナップショット
+作成日：2026-05-14  
+対象ファイル：`index.html`、`GAS_script.gs`  
+目的：本番運用前のバグ防止・保守性向上のための設計可視化
+
+---
+
+## 1. 状態管理マップ
+
+### 1-1. スプレッドシート「運行記録」シート
+
+| 列 | 内容 | 形式 |
+|---|---|---|
+| A列 `date` | 運行日 | `YYYY-MM-DD` |
+| B列 `stopNum` | レコード種別（数値）| 下記stopNum体系参照 |
+| C列 `departTime` | 時刻またはJSONペイロード | `HH:MM` または JSON文字列 |
+| D列 `timestamp` | サーバー記録日時 | `YYYY-MM-DD HH:mm:ss` |
+
+**GAS doGet 日付フィルタ**：`GAS_script.gs` L57 `if (date && rowDate !== date) continue;` にて行レベルで適用。`?date=` パラメータが空の場合は全日付が返る。
+
+**GAS doPost 日付フィルタ**：各stopNumの重複チェックブロックで `rowDate === date` を確認（L134, L155, L175, L196, L220）。新規追記時（L233）は受信した `date` をそのまま保存。
+
+### 1-2. スプレッドシート「子ども情報シート」
+
+`loadSheets` (L1477) で `A2:H` 範囲を取得。
+
+| 列 | 用途 |
+|---|---|
+| A列 | 通し番号（NO）|
+| B列 | 子どもの名前 |
+| C列 | 自宅住所 |
+| D列 | 出席曜日（例：月火水）|
+| E列 | 乗車時間 |
+| F列 | 電話番号 |
+| G列 | 備考 |
+| H列 | その他 |
+
+### 1-3. スプレッドシート「事業所情報シート」
+
+`loadSheets` (L1460) で `A1:B8` 範囲を取得。
+
+| 行 | 用途 |
+|---|---|
+| centerAddress | 事業所住所 |
+| departTime | 出発時刻（フォームへ自動入力）|
+| arrivalTime | 到着希望時刻 |
+| vehicleCount | 車両台数 |
+| maxCapacity | 最大乗車人数 |
+
+### 1-4. スプレッドシート「当日出欠シート」
+
+`loadSheets` (L1485) で `A2:B` 範囲を取得。A列がNO（数字）なら番号照合、名前なら名前照合でマージ（L1490-1497）。
+
+---
+
+### 1-5. JavaScript グローバル変数（全一覧）
+
+#### `gCurrentStops`（L1135）
+- **型**：Array\<Stop\> | null
+- **書き込み**：`checkConfirmedRoute`(L3461)、`syncOperation`スナップショット復元(L2726)、`optimizeRoute`
+- **読み込み**：`renderRouteList`、`applyDepartureState`、`applyAbsenceState`、`reoptimizeAfterAbsence`、`saveRouteSnapshot`、`finalizeRoute`
+- **リセット**：`checkAndShowConfirmedRoute`(L3567) → `null`
+- **⚠️ リセット漏れ**：なし（日付変更時に正しくリセットされる）
+
+#### `gCurrentRouteType`（L1136）
+- **型**：string | null（`'pickup'` または `'dropoff'`）
+- **書き込み**：`checkConfirmedRoute`(L3462)、`syncOperation`スナップショット(L2727)
+- **リセット**：`checkAndShowConfirmedRoute`(L3568) → `null`
+
+#### `gCurrentArrTimeStr`（L1137）
+- **型**：string | null（`'HH:MM'`形式）
+- **書き込み**：`checkConfirmedRoute`(L3463)、`syncOperation`スナップショット(L2728)
+- **リセット**：`checkAndShowConfirmedRoute`(L3569) → `null`
+
+#### `departureRecords`（L1132）
+- **型**：`{ [stopIdx: number]: 'HH:MM' }`
+- **書き込み**：`recordDeparture`(L2644)、`checkConfirmedRoute`(L3484)、`syncOperation`(L2675)
+- **読み込み**：`applyDepartureState`（時刻表示）、`reoptimizeAfterAbsence`（通過済み判定）
+- **リセット**：`checkAndShowConfirmedRoute`(L3570) → `{}`、`startOperationSync`(L2909) → `{}`
+- **⚠️ リセット漏れ**：なし
+
+#### `localDeparted`（L1133）
+- **型**：Set\<number\>
+- **用途**：センター停留所（idx=0 / 最終idx）はGASデータではなくローカル押下のみ `effectiveDeparted` に算入する判定用
+- **書き込み**：`recordDeparture`(L2646)、`checkConfirmedRoute`(L3485)、`syncOperation`(L2676)
+- **リセット**：`checkAndShowConfirmedRoute`(L3571) → `new Set()`、`startOperationSync`(L2910) → `new Set()`
+
+#### `syncTimerId`（L1134）
+- **型**：number | null
+- **書き込み**：`startOperationSync`(L2913)、`syncOperation`スナップショット復元(L2737)、`checkConfirmedRoute`(L3526)
+- **クリア**：`checkAndShowConfirmedRoute`(L3574)、`startOperationSync`(L2911)
+
+#### `isKirariMode`（L1138）
+- **型**：boolean（false=添乗者、true=きらり）
+- **書き込み**：モード切替ボタン(L2943)、`confirmRoute`(L3034) → false（共有開始時は添乗者モードに強制）、`loadSheets`終了後にリセット(L2023)
+- **永続化**：なし（リロードで false にリセット）
+
+#### `isFinalized`（L1139）
+- **型**：boolean
+- **書き込み**：`finalizeRoute`(L3064)、`restoreRoute`(L3079)、`checkConfirmedRoute`(L3473)、`syncOperation`(L2683)
+- **永続化**：なし（リロードで false にリセット → `checkConfirmedRoute` で復元）
+
+#### `isShared`（L1140）
+- **型**：boolean
+- **書き込み**：`confirmRoute`(L3035)、`checkConfirmedRoute`(L3466)
+- **永続化**：なし（リロードで false → checkConfirmedRoute で復元）
+- **⚠️** `syncOperation`スナップショット復元(L2730)で `if (isShared)` を参照するが、リロード直後は `false` のためスナップショット表示がスキップされる可能性あり
+
+#### `absenceRecords`（L1141）
+- **型**：`{ ["stopIdx_personName"]: reason_string }`
+- **書き込み**：`confirmAbsence`(L3125)、`checkConfirmedRoute`(L3491)、`syncOperation`(L2693)
+- **読み込み**：`applyAbsenceState`、`updateAbsenceBanner`、`updateAbsenceAlertBar`（添乗者モード）、`reoptimizeAfterAbsence`
+- **リセット**：**なし** ← ⚠️ 日付変更時にリセットされない
+- **⚠️ リセット漏れ**：**確定バグ**。過去日のデータが残留し翌日以降も参照される
+
+#### `dismissedAbsences`（L1142）
+- **型**：Set\<"stopIdx_personName"\>
+- **用途**：添乗者モードで赤バナーの × を押したもの（同セッション内で再表示しない）
+- **書き込み**：`updateAbsenceAlertBar` clickハンドラ(L3407)、`checkConfirmedRoute`(L3501)、`syncOperation`(L2704)
+- **リセット**：**なし** ← ⚠️ 日付変更時にリセットされない
+- **⚠️ リセット漏れ**：**確定バグ**。別日で確認済みになった欠席が残留
+
+#### `acknowledgedAbsences`（L1143）
+- **型**：Set\<"stopIdx_personName"\>
+- **用途**：添乗者が赤バナー × で確認済みにした欠席（GAS `-776` と同期）。きらりモード緑バナーの表示ソース
+- **書き込み**：`checkConfirmedRoute`(L3500)、`syncOperation`(L2703)
+- **読み込み**：`updateAbsenceAlertBar`（きらりモード緑バナー判定 L3361）、`applyAbsenceState`（確認済みバッジ L3294）
+- **リセット**：**なし** ← ⚠️ 日付変更時にリセットされない
+- **⚠️ リセット漏れ**：**確定バグ（今回の調査で特定済み）**。前日の `acknowledgedAbsences` が残留し、当日ルートにいない子の緑バナーが誤表示される
+
+#### `kirariDismissedAck`（L1144）
+- **型**：Set\<personName\>
+- **用途**：きらりモードで緑バナーを × で閉じた人名。GAS `-778` で永続化
+- **書き込み**：`updateAbsenceAlertBar` clickハンドラ(L3374)、`checkConfirmedRoute`(L3509)、`syncOperation`(L2712)
+- **読み込み**：`updateAbsenceAlertBar`（緑バナーフィルタ L3363）
+- **リセット**：`checkAndShowConfirmedRoute`(L3576) → `new Set()`（日付変更時にリセット ✅）
+
+#### `_pendingAbsenceStopIdx` / `_pendingAbsenceName`（L1145-1146）
+- 欠席モーダル表示中の一時データ。`recordAbsence`で書き込み、`confirmAbsence`/`cancelAbsence`でクリア
+
+#### `gDirectionsResult`（L1130）
+- Google Maps Directions API の最後のレスポンス（グレーポリライン描画用）
+- **リセット**：`checkAndShowConfirmedRoute`(L3573) → `null`
+
+#### `gGreyPolyline`（L1131）
+- 通過済み区間グレーオーバーレイの Polyline インスタンス
+- **リセット**：`checkAndShowConfirmedRoute`(L3572) → `null`（setMap(null)でマップから除去）
+
+#### `storage`（L1158）
+- `{}` オブジェクト。localStorage の代替（data: URL 環境対応）。設定値（APIキー等）を保持
+
+---
+
+### 1-6. localStorage
+
+| キー | 値 | 書き込み箇所 | 読み込み箇所 | リセット |
+|---|---|---|---|---|
+| `parentDevice` | `'1'` | `confirmRoute` L3033 | 未読み込み（参照箇所なし）| なし |
+
+**⚠️ 注記**：`parentDevice` は書き込まれるが、コード内で参照・読み取りする箇所が見当たらない（dead write の可能性）。
+
+---
+
+### 1-7. sessionStorage
+
+現在のコードに sessionStorage の読み書きは**存在しない**。  
+（以前は `kirariDismissedAck` の永続化に使用されていたが、GAS `-778` 方式に移行済み）
+
+---
+
+## 2. stopNum 番号体系 完全リファレンス
+
+| stopNum | 意味 | 書き込み関数 | 読み込み関数 | confirmed=true で返るか | absence=true で返るか | doPost 重複防止 |
+|---|---|---|---|---|---|---|
+| `>= 0` | 出発記録（停車地番号） | `recordDeparture` L2653 | `syncOperation` L2673, `checkConfirmedRoute` L3482 | ✅ | ❌ | 同日・同地点の既存行を**上書き** |
+| `-666` | 帰着確定 | `finalizeRoute` L3063 | `syncOperation` L2680, `checkConfirmedRoute` L3470 | ✅ | ❌ | なし（追記）|
+| `-665` | 帰着解除 | `restoreRoute` L3078 | `syncOperation` L2680, `checkConfirmedRoute` L3470 | ✅ | ❌ | なし（追記）|
+| `-776` | 欠席確認済み（添乗者→きらり通知） | `updateAbsenceAlertBar` clickハンドラ L3416 | `syncOperation` L2698, `checkConfirmedRoute` L3495 | ✅ | ❌ | 同日・同stopIdx・同personName は**スキップ** |
+| `-777` | 欠席記録 | `confirmAbsence` L3133 ⚠️ | `syncOperation` L2689, `checkConfirmedRoute` L3487 | ✅ | ✅ | 同日・同stopIdx・同personName は**スキップ** |
+| `-778` | 緑バナー閉じ済み（きらり→永続化） | `updateAbsenceAlertBar` clickハンドラ L3381 | `syncOperation` L2709, `checkConfirmedRoute` L3506 | ✅（GAS再デプロイ後）| ❌ | 同日・同personName は**スキップ** |
+| `-888` | 確定ルート（全停車地データ含む） | `confirmRoute` L3032 | `checkConfirmedRoute` L3457 | ✅ | ❌ | 同日の既存行を**上書き** |
+| `-999` | スナップショット（最適化完了後の一時保存） | `saveRouteSnapshot` L2957 | `syncOperation` L2722 | ❌（confirmed=true で返らない）| ❌ | 同日の既存行を**上書き** |
+
+**⚠️ `-777` の `date` フィールド欠落バグ**（L3128-3133）：
+```javascript
+const payload = JSON.stringify({
+    stopNum: -777,
+    departTime: JSON.stringify({ stopIdx, personName, reason })
+    // ← date フィールドがない！
+});
+```
+GAS doPost は `body.date || ''` で受け取るため、欠席レコードの A 列が**空文字**になる。GAS の日付フィルタ（`if (date && rowDate !== date) continue`）は `date=''` のとき全日付を返すため、空文字の行は `rowDate !== ''` となり通常はフィルタされるが、重複チェック時に `rowDate === date` が `'' === ''` で誤ヒットする可能性あり。
+
+---
+
+## 3. データフロー
+
+### (a) 通常運行：日付選択 → 利用者読み込み → ルート最適化 → 共有開始 → 各停車地出発 → 帰着
+
+```
+[ユーザー操作]              [JavaScript変数]           [GAS スプレッドシート]
+─────────────────────────────────────────────────────────────────────
+1. ページ読み込み
+   └─ checkAndShowConfirmedRoute()
+      ├─ GAS GET ?date=today&confirmed=true ─────────────────► 運行記録シート
+      │  （-888 なし → false 返却）
+      └─ load-btn / stepper を表示
+
+2. 日付・種別を選択（onchange）
+   └─ card-result/card-children 非表示
+      └─ checkAndShowConfirmedRoute()
+         └─ 同上（-888 なし）
+
+3. 「利用者を読み込む」ボタン押下
+   └─ loadSheets()
+      ├─ fetchSheet → 事業所情報シート ─────────────────────► GAS Sheets API
+      ├─ fetchSheet → 子ども情報シート ──────────────────────► GAS Sheets API
+      ├─ fetchSheet → 当日出欠シート ────────────────────────► GAS Sheets API
+      ├─ children[] に格納
+      └─ renderTable() → card-children 表示
+
+4. 「ルートを最適化する」ボタン押下
+   └─ optimizeRoute()
+      ├─ gCurrentStops ← 計算結果
+      ├─ gCurrentRouteType ← 'pickup'/'dropoff'
+      ├─ gCurrentArrTimeStr ← 'HH:MM'
+      ├─ saveRouteSnapshot() → GAS POST stopNum=-999 ──────► 運行記録 -999 行
+      └─ card-result 表示
+
+5. 「出発・共有開始」ボタン押下
+   └─ confirmRoute()
+      ├─ GAS POST stopNum=-888 ───────────────────────────► 運行記録 -888 行（上書き）
+      ├─ isShared = true
+      ├─ isKirariMode = false（添乗者モードに強制）
+      └─ localStorage['parentDevice'] = '1'
+
+6. 各停車地「出発」ボタン押下
+   └─ recordDeparture(stopIdx)
+      ├─ departureRecords[stopIdx] = 'HH:MM'
+      ├─ localDeparted.add(stopIdx)
+      ├─ applyDepartureState() → UI更新
+      └─ GAS POST stopNum=stopIdx ──────────────────────► 運行記録 >=0 行（上書き）
+         （最終停車地なら arrival-popup 表示）
+
+7. 「帰着」ボタン押下
+   └─ finalizeRoute()
+      ├─ isFinalized = true
+      ├─ body.classList.add('finalized')
+      └─ GAS POST stopNum=-666 ──────────────────────────► 運行記録 -666 行
+
+[30秒ごと syncOperation]
+   └─ GAS GET ?date=today（全レコード）──────────────────► 運行記録シート（全件）
+      ├─ departureRecords 更新
+      ├─ isFinalized 更新
+      ├─ absenceRecords 更新
+      ├─ acknowledgedAbsences 更新
+      ├─ kirariDismissedAck 更新
+      └─ applyDepartureState / updateAbsenceAlertBar 呼び出し
+```
+
+---
+
+### (b) 欠席発生：きらりが欠席連絡 → 添乗者に赤バナー → 添乗者が×で閉じる → きらりに緑バナー → 緑バナーを×で閉じる
+
+```
+[きらり端末]                              [GASシート]                [添乗者端末]
+─────────────────────────────────────────────────────────────────────────────
+
+1. きらりが「欠席連絡」ボタン押下
+   └─ recordAbsence(stopIdx, name) → モーダル表示
+      └─ confirmAbsence(reason)
+         ├─ absenceRecords["N_name"] = reason
+         ├─ applyAbsenceState() → 欠席バッジ表示
+         ├─ updateAbsenceAlertBar() → きらりモードは緑バナー対象外（acknowledgedAbsencesにまだない）
+         └─ GAS POST stopNum=-777 ──────────────────► 運行記録 -777 行
+            ⚠️ date フィールドなし（バグ）
+
+2. [30秒後] 添乗者端末の syncOperation
+   └─ GAS GET ?date=today ◄──────────────────────── -777 行を取得
+      ├─ absenceRecords["N_name"] = reason
+      └─ updateAbsenceAlertBar()
+         └─ 添乗者モード赤バナー表示（dismissedAbsences になければ）
+
+3. 添乗者が赤バナーの × を押す
+   └─ updateAbsenceAlertBar() clickハンドラ（L3407-3425）
+      ├─ dismissedAbsences.add("N_name") → 赤バナー消去
+      ├─ GAS POST stopNum=-776 ──────────────────► 運行記録 -776 行
+      │  payload: { date, stopNum:-776, departTime: {stopIdx, personName} }
+      └─ updateAbsenceAlertBar() 再呼び出し → バナー非表示
+
+4. [30秒後] きらり端末の syncOperation（または checkConfirmedRoute 後の await syncOperation）
+   └─ GAS GET ?date=today ◄──────────────────────── -776 行を取得
+      ├─ acknowledgedAbsences.add("N_name")
+      ├─ dismissedAbsences.add("N_name")
+      └─ updateAbsenceAlertBar()
+         └─ isKirariMode=true → acknowledgedAbsences にあり、kirariDismissedAck になければ
+            └─ 緑バナー表示 ✅
+
+5. きらりが緑バナーの × を押す
+   └─ updateAbsenceAlertBar() clickハンドラ（L3374-3388）
+      ├─ kirariDismissedAck.add(name) → 緑バナー消去
+      ├─ updateAbsenceAlertBar() → バナー非表示
+      └─ GAS POST stopNum=-778 ──────────────────► 運行記録 -778 行
+         payload: { date, stopNum:-778, departTime: {personName} }
+
+6. [リロード後] checkConfirmedRoute
+   └─ GAS GET ?date=today&confirmed=true ◄────────── -778 行を取得
+      └─ kirariDismissedAck.add(name) → 緑バナーは再表示されない ✅
+```
+
+---
+
+### (c) リロード復帰：運行途中でブラウザリロード → 現在の状態に復帰するまでの処理
+
+```
+[ページリロード時 IIFE（L1211-1215）]
+   │
+   ▼
+checkAndShowConfirmedRoute(dateStr)
+   ├─ 全変数リセット（gCurrentStops, departureRecords, localDeparted, kirariDismissedAck）
+   │  ⚠️ acknowledgedAbsences, absenceRecords, dismissedAbsences はリセットされない
+   │
+   └─ checkConfirmedRoute(today) ─── GAS GET ?date=today&confirmed=true
+      │
+      ├─ -888 レコードあり → ルート復元
+      │   ├─ gCurrentStops ← stops データ
+      │   ├─ isFinalized ← -666/-665 の最新レコード
+      │   ├─ departureRecords ← >=0 のレコード群
+      │   ├─ localDeparted ← 同上（GAS復元時も追加）
+      │   ├─ absenceRecords ← -777 レコード群
+      │   ├─ acknowledgedAbsences ← -776 レコード群
+      │   ├─ dismissedAbsences ← -776 レコード群（再表示防止）
+      │   ├─ kirariDismissedAck ← -778 レコード群
+      │   ├─ isShared = true
+      │   ├─ renderRouteList() → card-result 表示
+      │   ├─ applyDepartureState() → 出発済みボタン更新
+      │   ├─ applyAbsenceState() → 欠席バッジ・確認済みバッジ
+      │   ├─ updateAbsenceAlertBar() → バナー更新（1回目）
+      │   ├─ await syncOperation() → 全レコード再取得・バナー更新（2回目・確定版）
+      │   └─ setInterval(syncOperation, 30000) → 30秒同期開始
+      │
+      └─ -888 レコードなし → false 返却
+          └─ checkAndRestoreOperation()
+              └─ await syncOperation()
+                 └─ -999 (スナップショット) があり isShared=true なら card-result 表示
+                    ⚠️ isShared は false のままなのでスナップショット表示がスキップされる可能性
+```
+
+**リロード復帰の課題**：`isShared` はリロードで `false` にリセットされる。`checkConfirmedRoute` が `-888` レコードを見つけると `isShared = true` に設定されるが、`-888` がなく `-999` のみの場合は `isShared` が `false` のまま `syncOperation` の `if (isShared)` (L2730) に入れず、スナップショットからの表示復帰ができない。
+
+---
+
+## 4. 既知バグ・懸念点
+
+### バグ1：緑バナー誤表示（acknowledgedAbsences のリセット漏れ）
+
+| 項目 | 内容 |
+|---|---|
+| **現状の挙動** | 過去日（例：2026-01-01）の中村花子の -776 データが `acknowledgedAbsences` に入ったまま残る。本日の日付に切り替えると `acknowledgedAbsences` がリセットされず中村花子の緑バナーが誤表示される |
+| **期待される挙動** | 日付を変更したら前日以前の `acknowledgedAbsences` データは使用しない |
+| **推定原因** | `checkAndShowConfirmedRoute` (L3566-3576) のリセットブロックで `acknowledgedAbsences`、`absenceRecords`、`dismissedAbsences` が `new Set()` / `{}` に初期化されていない。`kirariDismissedAck` はリセットされているが (L3576)、残り3変数が漏れている |
+| **影響範囲** | 同一セッション内で日付変更を行ったすべてのケース |
+
+---
+
+### バグ2：過去日付を選択すると -999 がスプレッドシートに書き込まれる現象
+
+| 項目 | 内容 |
+|---|---|
+| **現状の挙動** | 過去日付でルート最適化操作を行うと `saveRouteSnapshot()` が実行され、その日付の -999 レコードが書き込まれる（または上書きされる） |
+| **期待される挙動** | 過去日付では -999 は書き込まれない |
+| **推定原因** | `saveRouteSnapshot` (L2949) は `getSelectedDate()` を使用しており、過去日でも制限なく POST する。呼び出し元（optimizeRoute）に当日チェックがない可能性が高い |
+
+---
+
+### バグ3：リロード時「日付選択しただけで自動復帰」しなくなった
+
+| 項目 | 内容 |
+|---|---|
+| **現状の挙動** | ページを開いても運行中画面が表示されない場合がある |
+| **期待される挙動** | リロードすると自動的に現在の運行状態に復帰する |
+| **推定原因** | `-888` がある場合は `checkConfirmedRoute` で正常復帰する。`-888` がなく `-999` のみの場合は `syncOperation` の `if (isShared)` (L2730) が `false` のためスキップされる。`isShared` は `confirmRoute` 実行端末の localStorage に `parentDevice` を書くが、別端末（きらり端末）や同一端末のリロードで `isShared` の復元手段がない |
+
+---
+
+### バグ4：同じ目的の変数が3つ並列存在
+
+| 変数 | 用途 | 問題点 |
+|---|---|---|
+| `acknowledgedAbsences` | 添乗者確認済み欠席（GAS -776 ソース） | Set のキーが `"stopIdx_personName"` 形式 |
+| `dismissedAbsences` | 添乗者が赤バナーを × で閉じたもの | Set のキーが同形式だが用途が微妙に異なる |
+| `kirariDismissedAck` | きらりが緑バナーを × で閉じたもの | Set のキーが `personName` のみ（形式が違う） |
+
+`acknowledgedAbsences` と `dismissedAbsences` は現状ほぼ同時に `add` されており（`syncOperation` L2703-2704、`checkConfirmedRoute` L3500-3501）、ほぼ同内容になっている。役割の違いが不明確で管理コストが高い。
+
+---
+
+## 5. 設計上の構造的問題
+
+### 問題1：stopNum がマジックナンバー
+
+コード全体で `-666`、`-665`、`-776`、`-777`、`-778`、`-888`、`-999` が直接数値で比較・使用されており、意味を把握するのに GAS のコメントか本文書を参照しなければならない。
+
+```javascript
+// 現状（L2680）
+const finalRecs = records.filter(r => [-666, -665].includes(Number(r.stopNum)));
+// 同様に多数
+```
+
+### 問題2：日付変更時のリセット対象が変数ごとにバラバラ
+
+`checkAndShowConfirmedRoute` (L3566-3576) では以下がリセットされる：
+
+```
+リセットされる：gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr,
+               departureRecords, localDeparted, gGreyPolyline,
+               gDirectionsResult, syncTimerId, kirariDismissedAck
+リセットされない：acknowledgedAbsences, absenceRecords, dismissedAbsences,
+                isShared, isFinalized, isKirariMode
+```
+
+どの変数をリセットすべきかの一貫したルールがなく、追加されるたびに漏れが生じる構造。
+
+### 問題3：状態管理が4箇所に分散
+
+| 保存先 | 保存している状態 |
+|---|---|
+| JS変数（メモリ） | ルートデータ、出発状況、欠席情報、モード、タイマー |
+| GAS スプレッドシート | 運行記録（永続・共有）|
+| localStorage | `parentDevice`（書くだけで読まない）|
+| sessionStorage | 現在は未使用（以前は kirariDismissedAck に使用）|
+
+整合性の保証がなく、リロード・日付変更・モード切替でズレが生じやすい。
+
+### 問題4：`confirmAbsence` の POST に `date` フィールドがない（L3128）
+
+```javascript
+const payload = JSON.stringify({
+    stopNum: -777,
+    departTime: JSON.stringify({ stopIdx, personName, reason })
+    // ← date: getSelectedDate() が抜けている
+});
+```
+
+GAS の `body.date || ''` が空文字になり、スプレッドシートの A 列が空になる。doGet の日付フィルタは `date=''` のとき全レコードを返す仕様（L57: `if (date && ...)` の短絡評価）なので、空の行が誤って全日付クエリに含まれうる。
+
+### 問題5：`localStorage['parentDevice']` が dead write
+
+`confirmRoute` (L3033) で書き込まれるが、コード内で読み取る箇所が存在しない。本来は「この端末が添乗者端末か」を判定するために使うはずだったと推定されるが、現在は `isKirariMode` のメモリ変数で判定しており不要になっている可能性が高い。
+
+### 問題6：`startOperationSync` 関数が未使用の可能性
+
+`startOperationSync` (L2908-2914) は `departureRecords` と `localDeparted` をリセットして `syncOperation` を開始するが、この関数を呼び出しているコードが見当たらない。コードサーチで参照元が確認できない場合、デッドコードとなっている。
+
+### 問題7：`syncOperation` と `checkConfirmedRoute` の二重 `updateAbsenceAlertBar` 呼び出し
+
+`checkConfirmedRoute` 内で `updateAbsenceAlertBar()` が2回呼ばれる（L3520 と L3524）。1回目は `-778` 反映前（confirmedモードの取得データのみ）、2回目は `await syncOperation()` 完了後（全レコード取得後）。これは意図的なものだが、コードの読者には混乱を招く。
+
+### 問題8：GAS_script.gs のコメントが古い（L9-11）
+
+```
+//    B列: stopNum (数値: >=0=出発記録, -666=帰着確定, -665=帰着解除,
+//                       -777=欠席記録, -888=確定ルート, -999=スナップショット)
+```
+
+`-776`（欠席確認済み）と `-778`（緑バナー閉じ済み）が記載されていない。
+
+---
+
+## 6. リファクタ提案（影響度順）
+
+### 案1【最小影響・即効性あり】日付変更時リセット対象を統一
+
+`checkAndShowConfirmedRoute` のリセットブロック（L3566付近）に3行追加するだけ。
+
+```
+追加対象：
+acknowledgedAbsences = new Set();
+absenceRecords = {};
+dismissedAbsences = new Set();
+```
+
+既知バグ1（緑バナー誤表示）が解消される。他の関数への影響なし。
+
+---
+
+### 案2【小影響】`confirmAbsence` の POST に `date` フィールドを追加
+
+`L3128-3131` の payload に `date: getSelectedDate()` を追加する1行修正。
+
+```javascript
+const payload = JSON.stringify({
+    date:       getSelectedDate(),  // ← 追加
+    stopNum:    -777,
+    departTime: JSON.stringify({ stopIdx, personName, reason })
+});
+```
+
+欠席レコードの A 列が正しく日付になり、GAS の日付フィルタが正確に機能するようになる。
+
+---
+
+### 案3【中影響】stopNum を定数で管理
+
+マジックナンバーを排除し、可読性・保守性を向上させる。
+
+```javascript
+// 提案：定数オブジェクトを宣言
+const STOP_NUM = {
+  DEPARTURE:    (n) => n >= 0,  // 出発記録
+  FINALIZED:    -666,           // 帰着確定
+  UNFINALIZED:  -665,           // 帰着解除
+  ABSENCE_ACK:  -776,           // 欠席確認済み
+  ABSENCE:      -777,           // 欠席記録
+  BANNER_CLOSE: -778,           // 緑バナー閉じ済み
+  ROUTE:        -888,           // 確定ルート
+  SNAPSHOT:     -999,           // スナップショット
+};
+```
+
+GAS 側も同様に変更が必要なため、フロント・GAS 両方への変更が伴う中規模修正。
+
+---
+
+### 案4【中影響】`acknowledgedAbsences` と `dismissedAbsences` を統合
+
+現在この2変数はほぼ同じタイミングで同じキーが `add` されている。1つの Map に統合し、フラグで用途を区別することで変数の重複を解消できる。
+
+```
+現状：acknowledgedAbsences（Set）+ dismissedAbsences（Set）
+提案：absenceAckState = Map<key, { acknowledged: bool, dismissed: bool }>
+```
+
+ただし参照箇所が多いため、修正範囲は相応に広くなる。
+
+---
+
+### 案5【大影響】日付ベースの状態管理クラス化
+
+日付変更時にすべての状態を一括リセット・ロードできるよう、日付をキーとした状態管理オブジェクトを導入する。
+
+```javascript
+// 提案イメージ
+const dayState = {
+  date: null,
+  reset(newDate) {
+    this.date = newDate;
+    this.departureRecords = {};
+    this.localDeparted = new Set();
+    this.absenceRecords = {};
+    this.acknowledgedAbsences = new Set();
+    this.dismissedAbsences = new Set();
+    this.kirariDismissedAck = new Set();
+    // ... 全関連変数
+  }
+};
+```
+
+「どの変数が日付依存か」が明示的になりリセット漏れを構造的に防げる。ただし、既存の全グローバル変数参照の書き換えを伴う大規模リファクタリングとなるため、次フェーズ以降での実施を推奨。
+
+---
+
+*以上、コード変更は一切行っておりません。*
