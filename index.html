@@ -2712,6 +2712,7 @@ async function syncOperation() {
         if (d.personName !== undefined) kirariDismissedAck.add(d.personName);
       } catch(e) {}
     });
+    console.log('[同期] kirariDismissedAck:', [...kirariDismissedAck]);
     applyAbsenceState();
     updateAbsenceBanner(); updateAbsenceAlertBar();
     reoptimizeAfterAbsence();
@@ -3355,6 +3356,7 @@ function updateAbsenceAlertBar() {
 
   // きらりモード：添乗者が赤バナー×を押して確認済み(-776)になったものを緑バナーで表示
   if (isKirariMode) {
+    console.log('[緑バナー更新] acknowledgedAbsences:', [...acknowledgedAbsences], 'kirariDismissedAck:', [...kirariDismissedAck]);
     // acknowledgedAbsences（GAS -776）をソース。kirariDismissedAck はpersonNameのみで管理
     const unread = [...acknowledgedAbsences].filter(key => {
       const name = key.substring(key.indexOf('_') + 1);
@@ -3374,13 +3376,15 @@ function updateAbsenceAlertBar() {
         kirariDismissedAck.add(name);
         updateAbsenceAlertBar();
         // GAS に緑バナー閉じ済み (-778) を保存してリロード後も再表示しない
+        console.log('[緑バナー×] GAS POST送信:', name, getSelectedDate());
         try {
           await fetch(GAS_URL, {
             method: 'POST', mode: 'no-cors',
             body: JSON.stringify({ date: getSelectedDate(), stopNum: -778,
               departTime: JSON.stringify({ personName: name }) })
           });
-        } catch(e) { console.warn('緑バナー閉じ送信失敗:', e); }
+          console.log('[緑バナー×] GAS POST完了:', name);
+        } catch(e) { console.warn('[緑バナー×] GAS POST失敗:', e); }
       });
     });
     _positionAbsenceAlertBar();
@@ -3505,6 +3509,7 @@ async function checkConfirmedRoute(dateStr, timeoutMs = 5000) {
         if (d.personName !== undefined) kirariDismissedAck.add(d.personName);
       } catch(e) {}
     });
+    console.log('[確定ルート読込] kirariDismissedAck:', [...kirariDismissedAck]);
 
     document.getElementById('card-result').style.display = '';
     renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
