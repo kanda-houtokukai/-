@@ -177,20 +177,10 @@
 | `-666` | 帰着確定 | `finalizeRoute` L3063 | `syncOperation` L2680, `checkConfirmedRoute` L3470 | ✅ | ❌ | なし（追記）|
 | `-665` | 帰着解除 | `restoreRoute` L3078 | `syncOperation` L2680, `checkConfirmedRoute` L3470 | ✅ | ❌ | なし（追記）|
 | `-776` | 欠席確認済み（添乗者→きらり通知） | `updateAbsenceAlertBar` clickハンドラ L3416 | `syncOperation` L2698, `checkConfirmedRoute` L3495 | ✅ | ❌ | 同日・同stopIdx・同personName は**スキップ** |
-| `-777` | 欠席記録 | `confirmAbsence` L3133 ⚠️ | `syncOperation` L2689, `checkConfirmedRoute` L3487 | ✅ | ✅ | 同日・同stopIdx・同personName は**スキップ** |
+| `-777` | 欠席記録 | `confirmAbsence` L3133 | `syncOperation` L2689, `checkConfirmedRoute` L3487 | ✅ | ✅ | 同日・同stopIdx・同personName は**スキップ** |
 | `-778` | 緑バナー閉じ済み（きらり→永続化） | `updateAbsenceAlertBar` clickハンドラ L3381 | `syncOperation` L2709, `checkConfirmedRoute` L3506 | ✅（GAS再デプロイ後）| ❌ | 同日・同personName は**スキップ** |
 | `-888` | 確定ルート（全停車地データ含む） | `confirmRoute` L3032 | `checkConfirmedRoute` L3457 | ✅ | ❌ | 同日の既存行を**上書き** |
 | `-999` | スナップショット（最適化完了後の一時保存） | `saveRouteSnapshot` L2957 | `syncOperation` L2722 | ❌（confirmed=true で返らない）| ❌ | 同日の既存行を**上書き** |
-
-**⚠️ `-777` の `date` フィールド欠落バグ**（L3128-3133）：
-```javascript
-const payload = JSON.stringify({
-    stopNum: -777,
-    departTime: JSON.stringify({ stopIdx, personName, reason })
-    // ← date フィールドがない！
-});
-```
-GAS doPost は `body.date || ''` で受け取るため、欠席レコードの A 列が**空文字**になる。GAS の日付フィルタ（`if (date && rowDate !== date) continue`）は `date=''` のとき全日付を返すため、空文字の行は `rowDate !== ''` となり通常はフィルタされるが、重複チェック時に `rowDate === date` が `'' === ''` で誤ヒットする可能性あり。
 
 ---
 
@@ -396,6 +386,22 @@ checkAndShowConfirmedRoute(dateStr)
 
 ---
 
+### 【検証記録】全 POST 箇所の `date` フィールド確認（2026-05-14 実施）
+
+| stopNum | 行番号 | `date` フィールド |
+|---|---|---|
+| `>= 0`（出発記録） | L2653 | ✅ `date: today` |
+| `-665`（帰着解除） | L3076 | ✅ `date: getSelectedDate()` |
+| `-666`（帰着確定） | L3054-3055 | ✅ `date: getSelectedDate()` |
+| `-777`（欠席記録） | L3128-3130 | ✅ `date: getSelectedDate()`（初版の欠落記述は誤り）|
+| `-888`（確定ルート） | L3275-3276 | ✅ `date: getSelectedDate()` |
+| `-778`（緑バナー閉じ） | L3383 | ✅ `date: getSelectedDate()` |
+| `-776`（欠席確認済み） | L3420 | ✅ `date: getSelectedDate()` |
+
+全 POST 箇所で `date` フィールドの付与を確認。欠落している箇所はない。
+
+---
+
 ## 5. 設計上の構造的問題
 
 ### 問題1：stopNum がマジックナンバー
@@ -433,17 +439,11 @@ const finalRecs = records.filter(r => [-666, -665].includes(Number(r.stopNum)));
 
 整合性の保証がなく、リロード・日付変更・モード切替でズレが生じやすい。
 
-### 問題4：`confirmAbsence` の POST に `date` フィールドがない（L3128）
+### ~~問題4：`confirmAbsence` の POST に `date` フィールドがない~~
 
-```javascript
-const payload = JSON.stringify({
-    stopNum: -777,
-    departTime: JSON.stringify({ stopIdx, personName, reason })
-    // ← date: getSelectedDate() が抜けている
-});
-```
-
-GAS の `body.date || ''` が空文字になり、スプレッドシートの A 列が空になる。doGet の日付フィルタは `date=''` のとき全レコードを返す仕様（L57: `if (date && ...)` の短絡評価）なので、空の行が誤って全日付クエリに含まれうる。
+**2026-05-14 確認時点で本問題は存在しないことが判明。**
+実コードの L3128-3130 には `date: getSelectedDate()` が正しく付与されている。
+本ドキュメント初版作成時の誤った記述。
 
 ### 問題5：`localStorage['parentDevice']` が dead write
 
@@ -485,19 +485,10 @@ dismissedAbsences = new Set();
 
 ---
 
-### 案2【小影響】`confirmAbsence` の POST に `date` フィールドを追加
+### 案2【対応不要】`confirmAbsence` の POST `date` フィールド追加
 
-`L3128-3131` の payload に `date: getSelectedDate()` を追加する1行修正。
-
-```javascript
-const payload = JSON.stringify({
-    date:       getSelectedDate(),  // ← 追加
-    stopNum:    -777,
-    departTime: JSON.stringify({ stopIdx, personName, reason })
-});
-```
-
-欠席レコードの A 列が正しく日付になり、GAS の日付フィルタが正確に機能するようになる。
+**2026-05-14 確認時点で本対応は不要であることが判明。**
+現コードには既に `date: getSelectedDate()` が付与済み。
 
 ---
 
