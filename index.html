@@ -3520,7 +3520,8 @@ async function checkConfirmedRoute(dateStr, timeoutMs = 5000) {
     updateAbsenceBanner(); updateAbsenceAlertBar();
     redrawMapRoute(gCurrentStops);
 
-    syncOperation();
+    await syncOperation(); // -778を含む全レコードを取得してkirariDismissedAckを確定させてからバナー更新
+    updateAbsenceBanner(); updateAbsenceAlertBar();
     if (!syncTimerId) {
       syncTimerId = setInterval(syncOperation, 30000);
     }
