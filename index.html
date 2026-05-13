@@ -2505,7 +2505,7 @@ function renderRouteList(stops, routeType, arrTimeStr) {
         const absKey = `${idx}_${c.name}`;
         const absent = absenceRecords[absKey];
         const absBtnId = `abs-btn-${idx}-${c.name.replace(/[^a-zA-Z0-9]/g,'_')}`;
-        const absBtn = `<button class="absence-btn" id="${absBtnId}" onclick="recordAbsence(${idx},'${esc(c.name).replace(/'/g,'&#39;')}')" ${absent ? 'disabled' : ''}>${absent ? '欠席済み' : '欠席'}</button>`;
+        const absBtn = `<button class="absence-btn" id="${absBtnId}" onclick="recordAbsence(${idx},'${esc(c.name).replace(/'/g,'&#39;')}')" ${absent ? 'disabled' : ''}>${absent ? '欠席済み' : '欠席連絡'}</button>`;
         const reasonTag = absent ? `<span class="absence-reason-tag">${esc(absent)}</span>` : '';
         return `<div class="child-row ${absent ? 'absent-child' : ''}" data-child-key="${idx}_${c.name}" style="font-size:12px;margin-top:3px;">🧒 <strong>${esc(c.name)}</strong>${reasonTag}${phone}${absBtn}</div>`;
       }).join('');
@@ -2807,15 +2807,20 @@ function applyDepartureState() {
     const sub = li.querySelector('.depart-time-sub');
     const isCenterStop = (idx === 0 || idx === lastIdx);
 
-    // ─── グレー化（中間停留所のみ）───
+    // ─── 通過済み停留所の処理（中間停留所のみ）───
     if (!isCenterStop) {
       if (maxDeparted >= 0 && idx <= maxDeparted) {
-        li.classList.add('departed');
+        li.classList.remove('departed'); // 名前を薄くしない（departed クラスは使わない）
+        // 欠席連絡を押さなかった子どもの欠席ボタンのみ非表示
         li.querySelectorAll('.absence-btn:not(:disabled)').forEach(ab => {
-          ab.disabled = true; ab.style.pointerEvents = 'none';
+          ab.style.display = 'none';
         });
       } else {
         li.classList.remove('departed');
+        // 未通過の停留所は欠席連絡ボタンを元に戻す
+        li.querySelectorAll('.absence-btn:not(:disabled)').forEach(ab => {
+          ab.style.display = '';
+        });
       }
     }
 
