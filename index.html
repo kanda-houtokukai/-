@@ -2810,7 +2810,7 @@ function applyDepartureState() {
     // ─── 通過済み停留所の処理（中間停留所のみ）───
     if (!isCenterStop) {
       if (maxDeparted >= 0 && idx <= maxDeparted) {
-        li.classList.remove('departed'); // 名前を薄くしない（departed クラスは使わない）
+        li.classList.add('departed'); // opacity:0.4 でグレー化
         // 欠席連絡を押さなかった子どもの欠席ボタンのみ非表示
         li.querySelectorAll('.absence-btn:not(:disabled)').forEach(ab => {
           ab.style.display = 'none';
@@ -3333,10 +3333,10 @@ function updateAbsenceAlertBar() {
   const bar = document.getElementById('absence-alert-bar');
   if (!bar) return;
 
-  // きらりモード：確認済み（添乗者が×を押した）をまだ閉じていないものを緑バナーで表示
+  // きらりモード：欠席連絡ボタンを押した後に緑バナーで表示（赤バナー×と独立）
   if (isKirariMode) {
-    // kirariDismissedAck はpersonNameのみをキーとして管理
-    const unread = [...acknowledgedAbsences].filter(key => {
+    // absenceRecords（-777）をソースにする。kirariDismissedAck はpersonNameのみで管理
+    const unread = Object.keys(absenceRecords).filter(key => {
       const name = key.substring(key.indexOf('_') + 1);
       return !kirariDismissedAck.has(name);
     });
