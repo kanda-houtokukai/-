@@ -3333,10 +3333,10 @@ function updateAbsenceAlertBar() {
   const bar = document.getElementById('absence-alert-bar');
   if (!bar) return;
 
-  // きらりモード：欠席連絡ボタンを押した後に緑バナーで表示（赤バナー×と独立）
+  // きらりモード：添乗者が赤バナー×を押して確認済み(-776)になったものを緑バナーで表示
   if (isKirariMode) {
-    // absenceRecords（-777）をソースにする。kirariDismissedAck はpersonNameのみで管理
-    const unread = Object.keys(absenceRecords).filter(key => {
+    // acknowledgedAbsences（GAS -776）をソース。kirariDismissedAck はpersonNameのみで管理
+    const unread = [...acknowledgedAbsences].filter(key => {
       const name = key.substring(key.indexOf('_') + 1);
       return !kirariDismissedAck.has(name);
     });
