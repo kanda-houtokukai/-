@@ -343,7 +343,7 @@ checkAndShowConfirmedRoute(dateStr)
 
 ## 4. 既知バグ・懸念点
 
-### バグ1：緑バナー誤表示（acknowledgedAbsences のリセット漏れ）
+### バグ1：緑バナー誤表示（acknowledgedAbsences のリセット漏れ）✅ 修正済み（Phase 1）
 
 | 項目 | 内容 |
 |---|---|
@@ -351,6 +351,7 @@ checkAndShowConfirmedRoute(dateStr)
 | **期待される挙動** | 日付を変更したら前日以前の `acknowledgedAbsences` データは使用しない |
 | **推定原因** | `checkAndShowConfirmedRoute` (L3566-3576) のリセットブロックで `acknowledgedAbsences`、`absenceRecords`、`dismissedAbsences` が `new Set()` / `{}` に初期化されていない。`kirariDismissedAck` はリセットされているが (L3576)、残り3変数が漏れている |
 | **影響範囲** | 同一セッション内で日付変更を行ったすべてのケース |
+| **修正** | Phase 1 にて L3576 直後に3行追加。コミット `faf3f57` にて対応完了 |
 
 ---
 
@@ -416,17 +417,17 @@ const finalRecs = records.filter(r => [-666, -665].includes(Number(r.stopNum)));
 
 ### 問題2：日付変更時のリセット対象が変数ごとにバラバラ
 
-`checkAndShowConfirmedRoute` (L3566-3576) では以下がリセットされる：
+`checkAndShowConfirmedRoute` (L3566-3579) では以下がリセットされる（Phase 1 修正後）：
 
 ```
 リセットされる：gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr,
                departureRecords, localDeparted, gGreyPolyline,
-               gDirectionsResult, syncTimerId, kirariDismissedAck
-リセットされない：acknowledgedAbsences, absenceRecords, dismissedAbsences,
-                isShared, isFinalized, isKirariMode
+               gDirectionsResult, syncTimerId, kirariDismissedAck,
+               acknowledgedAbsences, absenceRecords, dismissedAbsences  ← Phase 1 で追加
+リセットされない：isShared, isFinalized, isKirariMode
 ```
 
-どの変数をリセットすべきかの一貫したルールがなく、追加されるたびに漏れが生じる構造。
+`isShared`・`isFinalized`・`isKirariMode` はリセットされないが、`checkConfirmedRoute` が `-888` レコードを見つければ `isShared=true`・`isFinalized` を再設定するため、実害は限定的。ただし `isKirariMode` は日付変更後も保持されるため、モードが意図せず持ち越される可能性がある。どの変数をリセットすべきかの一貫したルールがなく、追加されるたびに漏れが生じる構造という根本問題は継続。
 
 ### 問題3：状態管理が4箇所に分散
 
@@ -435,7 +436,7 @@ const finalRecs = records.filter(r => [-666, -665].includes(Number(r.stopNum)));
 | JS変数（メモリ） | ルートデータ、出発状況、欠席情報、モード、タイマー |
 | GAS スプレッドシート | 運行記録（永続・共有）|
 | localStorage | `parentDevice`（書くだけで読まない）|
-| sessionStorage | 現在は未使用（以前は kirariDismissedAck に使用）|
+| sessionStorage | 現在は未使用（以前は kirariDismissedAck に使用、2026-05-14 コード確認済み）|
 
 整合性の保証がなく、リロード・日付変更・モード切替でズレが生じやすい。
 
@@ -447,15 +448,17 @@ const finalRecs = records.filter(r => [-666, -665].includes(Number(r.stopNum)));
 
 ### 問題5：`localStorage['parentDevice']` が dead write
 
-`confirmRoute` (L3033) で書き込まれるが、コード内で読み取る箇所が存在しない。本来は「この端末が添乗者端末か」を判定するために使うはずだったと推定されるが、現在は `isKirariMode` のメモリ変数で判定しており不要になっている可能性が高い。
+`confirmRoute` (L3033) で `localStorage.setItem('parentDevice', '1')` として書き込まれるが、`localStorage.getItem` の呼び出しがコード内に存在しない（2026-05-14 全文 grep で確認済み）。本来は「この端末が添乗者端末か」を判定するために使うはずだったと推定されるが、現在は `isKirariMode` のメモリ変数で判定しており不要。dead write として確定。
 
-### 問題6：`startOperationSync` 関数が未使用の可能性
+### ~~問題6：`startOperationSync` 関数が未使用の可能性~~
 
-`startOperationSync` (L2908-2914) は `departureRecords` と `localDeparted` をリセットして `syncOperation` を開始するが、この関数を呼び出しているコードが見当たらない。コードサーチで参照元が確認できない場合、デッドコードとなっている。
+**2026-05-14 確認時点で本問題は存在しないことが判明。**
+`startOperationSync` は `optimizeRoute()` (L1815) 内の L2029 から呼ばれており、「ルートを最適化する」ボタン押下時に必ず実行される。
+本ドキュメント初版作成時の確認ミスによる誤った記述。
 
 ### 問題7：`syncOperation` と `checkConfirmedRoute` の二重 `updateAbsenceAlertBar` 呼び出し
 
-`checkConfirmedRoute` 内で `updateAbsenceAlertBar()` が2回呼ばれる（L3520 と L3524）。1回目は `-778` 反映前（confirmedモードの取得データのみ）、2回目は `await syncOperation()` 完了後（全レコード取得後）。これは意図的なものだが、コードの読者には混乱を招く。
+`checkConfirmedRoute` 内で `updateAbsenceBanner(); updateAbsenceAlertBar()` が2回呼ばれる（L3520 と L3524、2026-05-14 grep 確認済み）。1回目（L3520）は `-778` 反映前（confirmed=true モードの取得データのみ）、2回目（L3524）は `await syncOperation()` 完了後（全レコード取得後・kirariDismissedAck 確定後）。2回目の呼び出しが「確定版」として機能する意図的な設計だが、コードの読者には混乱を招く。記述は正確。
 
 ### 問題8：GAS_script.gs のコメントが古い（L9-11）
 
@@ -464,24 +467,23 @@ const finalRecs = records.filter(r => [-666, -665].includes(Number(r.stopNum)));
 //                       -777=欠席記録, -888=確定ルート, -999=スナップショット)
 ```
 
-`-776`（欠席確認済み）と `-778`（緑バナー閉じ済み）が記載されていない。
+`-776`（欠席確認済み）と `-778`（緑バナー閉じ済み）が記載されていない（2026-05-14 実ファイル確認済み）。また `-665`（帰着解除）は記載されているが、`-776` / `-778` は後から追加されたため、コメントが更新されていない。記述は正確。
 
 ---
 
 ## 6. リファクタ提案（影響度順）
 
-### 案1【最小影響・即効性あり】日付変更時リセット対象を統一
+### ~~案1【最小影響・即効性あり】日付変更時リセット対象を統一~~ ✅ 実施済み（Phase 1）
 
-`checkAndShowConfirmedRoute` のリセットブロック（L3566付近）に3行追加するだけ。
+`checkAndShowConfirmedRoute` の L3576 直後に以下3行を追加済み（コミット `faf3f57`）：
 
-```
-追加対象：
+```javascript
 acknowledgedAbsences = new Set();
 absenceRecords = {};
 dismissedAbsences = new Set();
 ```
 
-既知バグ1（緑バナー誤表示）が解消される。他の関数への影響なし。
+既知バグ1（緑バナー誤表示）が解消された。
 
 ---
 
