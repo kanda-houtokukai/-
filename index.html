@@ -887,7 +887,7 @@
 <main class="main">
 
   <!-- ステップインジケーター -->
-  <div class="stepper no-print" id="stepper">
+  <div class="stepper no-print" id="stepper" style="display:none;">
     <div class="step-item step-active" id="si-1"><span class="step-num">1</span>送迎日選択</div>
     <div class="step-item"            id="si-2"><span class="step-num">2</span>出席確認</div>
     <div class="step-item"            id="si-3"><span class="step-num">3</span>ルート最適化</div>
@@ -918,7 +918,7 @@
       <!-- 確定ルート確認ステータス -->
       <div id="date-confirm-status" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:8px;font-size:13px;background:#f1f8e9;color:#33691e;border:1px solid #aed581;"></div>
 
-      <button class="btn btn-primary btn-lg btn-full" id="load-btn" onclick="loadSheets()">
+      <button class="btn btn-primary btn-lg btn-full" id="load-btn" onclick="loadSheets()" style="display:none;">
         👥 利用者を読み込む
       </button>
     </div>
@@ -1207,10 +1207,11 @@ function setStep(n) {
 })();
 
 // ページ読み込み時：確定ルート → スナップショットの順で自動復元
+// checkAndShowConfirmedRoute がローディング表示・隠蔽・復元をすべて担う
 (async () => {
   const dateStr = getSelectedDate();
-  const hasConfirmed = await checkConfirmedRoute(dateStr);
-  if (!hasConfirmed) await checkAndRestoreOperation();
+  await checkAndShowConfirmedRoute(dateStr);
+  if (!gCurrentStops) await checkAndRestoreOperation();
 })();
 
 
