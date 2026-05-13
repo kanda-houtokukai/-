@@ -905,7 +905,7 @@
       <div class="form-grid" style="margin-bottom:16px;">
         <div class="form-group">
           <label>送迎日</label>
-          <input type="date" id="route-date" class="input-lg" onchange="applyDayFilter()">
+          <input type="date" id="route-date" class="input-lg" onchange="document.getElementById('card-result').style.display='none';document.getElementById('card-children').style.display='none';applyDayFilter()">
         </div>
         <div class="form-group">
           <label>種別</label>
@@ -1141,9 +1141,7 @@ let isShared     = false;  // 出発・共有開始済み
 let absenceRecords = {};   // { "stopIdx_personName": reason_string }
 let dismissedAbsences    = new Set(); // 添乗者が×で閉じた欠席通知
 let acknowledgedAbsences = new Set(); // 添乗者が確認済みにした欠席（GAS -776）
-let kirariDismissedAck  = new Set(); // きらりモードで×で閉じた確認済みバナー
-// リロード後も×閉じ状態を維持するためsessionStorageから復元
-try { JSON.parse(sessionStorage.getItem('kirariDismissedAck') || '[]').forEach(k => kirariDismissedAck.add(k)); } catch(e) {}
+let kirariDismissedAck  = new Set(); // きらりモードで×で閉じた確認済みバナー（GAS -778で永続化）
 let _pendingAbsenceStopIdx = null;
 let _pendingAbsenceName    = null;
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyhGI6v3kfhx0oetWEsKgj_gtcw4A9nwdfKzbCY8O7YD6pFA9rce3py-xKjxzKU_o_eCQ/exec';
@@ -2706,6 +2704,13 @@ async function syncOperation() {
         }
       } catch(e) {}
     });
+    // 緑バナー閉じ済み記録を同期 (-778)
+    records.filter(r => Number(r.stopNum) === -778).forEach(r => {
+      try {
+        const d = JSON.parse(r.departTime);
+        if (d.personName !== undefined) kirariDismissedAck.add(d.personName);
+      } catch(e) {}
+    });
     applyAbsenceState();
     updateAbsenceBanner(); updateAbsenceAlertBar();
     reoptimizeAfterAbsence();
@@ -3349,11 +3354,18 @@ function updateAbsenceAlertBar() {
       </div>`;
     }).join('');
     bar.querySelectorAll('.absence-alert-close').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const name = btn.dataset.name;
         kirariDismissedAck.add(name);
-        try { sessionStorage.setItem('kirariDismissedAck', JSON.stringify([...kirariDismissedAck])); } catch(e) {}
         updateAbsenceAlertBar();
+        // GAS に緑バナー閉じ済み (-778) を保存してリロード後も再表示しない
+        try {
+          await fetch(GAS_URL, {
+            method: 'POST', mode: 'no-cors',
+            body: JSON.stringify({ date: getSelectedDate(), stopNum: -778,
+              departTime: JSON.stringify({ personName: name }) })
+          });
+        } catch(e) { console.warn('緑バナー閉じ送信失敗:', e); }
       });
     });
     _positionAbsenceAlertBar();
@@ -3471,6 +3483,13 @@ async function checkConfirmedRoute(dateStr, timeoutMs = 5000) {
         }
       } catch(e) {}
     });
+    // 緑バナー閉じ済み記録を取得 (-778)
+    records.filter(r => Number(r.stopNum) === -778).forEach(r => {
+      try {
+        const d = JSON.parse(r.departTime);
+        if (d.personName !== undefined) kirariDismissedAck.add(d.personName);
+      } catch(e) {}
+    });
 
     document.getElementById('card-result').style.display = '';
     renderRouteList(gCurrentStops, gCurrentRouteType, gCurrentArrTimeStr);
@@ -3531,9 +3550,8 @@ async function checkAndShowConfirmedRoute(dateStr) {
   if (gGreyPolyline) { gGreyPolyline.setMap(null); gGreyPolyline = null; }
   gDirectionsResult = null;
   if (syncTimerId) { clearInterval(syncTimerId); syncTimerId = null; }
-  // 日付変更時にきらりモードの既読状態もリセット（新しい欠席確認を見逃さないため）
+  // 日付変更時にきらりモードの既読状態もリセット（checkConfirmedRouteでGASから再取得）
   kirariDismissedAck = new Set();
-  try { sessionStorage.removeItem('kirariDismissedAck'); } catch(e) {}
 
   const found = await checkConfirmedRoute(dateStr);
   if (found) {

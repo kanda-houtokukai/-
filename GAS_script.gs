@@ -76,7 +76,7 @@ function doGet(e) {
 
       // confirmed モード: -888, -776, -666, -665, -777, >=0 を返す
       if (confirmed) {
-        if (stopNum === -888 || stopNum === -776 || stopNum === -666 || stopNum === -665 || stopNum === -777 || stopNum >= 0) {
+        if (stopNum === -888 || stopNum === -776 || stopNum === -778 || stopNum === -666 || stopNum === -665 || stopNum === -777 || stopNum >= 0) {
           records.push({ date: rowDate, stopNum: stopNum, departTime: departTime, timestamp: ts });
         }
         continue;
@@ -218,6 +218,31 @@ function doPost(e) {
             } catch (parseErr) {
               // パース失敗は無視して追記
             }
+          }
+        }
+      }
+    }
+
+    // 緑バナー閉じ済み (-778) は同日・同人物の重複を防ぐ
+    if (stopNum === -778) {
+      var lastRow5 = sheet.getLastRow();
+      if (lastRow5 >= 2) {
+        var data5 = sheet.getRange(2, 1, lastRow5 - 1, 3).getValues();
+        for (var n = 0; n < data5.length; n++) {
+          var rowDate5 = '';
+          if (data5[n][0] instanceof Date) {
+            rowDate5 = Utilities.formatDate(data5[n][0], tz, 'yyyy-MM-dd');
+          } else {
+            rowDate5 = String(data5[n][0]).trim();
+          }
+          if (rowDate5 === date && Number(data5[n][1]) === -778) {
+            try {
+              var existing5 = JSON.parse(String(data5[n][2]));
+              var incoming5 = JSON.parse(departTime);
+              if (existing5.personName === incoming5.personName) {
+                return buildJsonResponse({ status: 'duplicate', skipped: true });
+              }
+            } catch (parseErr5) {}
           }
         }
       }
