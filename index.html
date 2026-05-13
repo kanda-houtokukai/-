@@ -3515,6 +3515,7 @@ async function checkConfirmedRoute(dateStr, timeoutMs = 5000) {
     updateAbsenceBanner(); updateAbsenceAlertBar();
     redrawMapRoute(gCurrentStops);
 
+    syncOperation();
     if (!syncTimerId) {
       syncTimerId = setInterval(syncOperation, 30000);
     }
