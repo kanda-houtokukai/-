@@ -3501,9 +3501,20 @@ async function checkAndShowConfirmedRoute(dateStr) {
   const statusEl = document.getElementById('date-confirm-status');
   if (!statusEl) return;
 
-  // GAS応答前に全画面を隠してローディングのみ表示
-  document.getElementById('card-result').style.display   = 'none';
-  document.getElementById('card-children').style.display = 'none';
+  const _cardResult  = document.getElementById('card-result');
+  const _cardChildren = document.getElementById('card-children');
+  const _loadBtn   = document.getElementById('load-btn');
+  const _stepperEl = document.getElementById('stepper');
+
+  // 確定ルートを表示中だった場合のみ画面全体を隠す（出発前の画面フラッシュ防止）
+  // loadSheets実行中（card-resultが非表示）は load-btn / stepper / card-children を隠さない
+  const wasViewingRoute = _cardResult && _cardResult.style.display !== 'none';
+  if (_cardResult)  _cardResult.style.display  = 'none';
+  if (wasViewingRoute) {
+    if (_cardChildren) _cardChildren.style.display = 'none';
+    if (_loadBtn)      _loadBtn.style.display      = 'none';
+    if (_stepperEl)    _stepperEl.style.display    = 'none';
+  }
 
   statusEl.style.display = '';
   statusEl.style.background = '#e3f2fd';
@@ -3520,6 +3531,9 @@ async function checkAndShowConfirmedRoute(dateStr) {
   if (gGreyPolyline) { gGreyPolyline.setMap(null); gGreyPolyline = null; }
   gDirectionsResult = null;
   if (syncTimerId) { clearInterval(syncTimerId); syncTimerId = null; }
+  // 日付変更時にきらりモードの既読状態もリセット（新しい欠席確認を見逃さないため）
+  kirariDismissedAck = new Set();
+  try { sessionStorage.removeItem('kirariDismissedAck'); } catch(e) {}
 
   const found = await checkConfirmedRoute(dateStr);
   if (found) {
@@ -3535,8 +3549,12 @@ async function checkAndShowConfirmedRoute(dateStr) {
       statusEl.textContent = '✅ 共有中のルートを表示しています';
     }
   } else {
-    // 未共有：ルート表示をクリアしてSTEP1のみ
-    document.getElementById('card-result').style.display = 'none';
+    // 未共有：確定ルート表示中から遷移してきた場合のみ隠した要素を戻す
+    if (_cardResult)  _cardResult.style.display  = 'none';
+    if (wasViewingRoute) {
+      if (_loadBtn)   _loadBtn.style.display   = '';
+      if (_stepperEl) _stepperEl.style.display = '';
+    }
     statusEl.style.background = '#fff8e1';
     statusEl.style.color = '#e65100';
     statusEl.style.borderColor = '#ffcc02';
