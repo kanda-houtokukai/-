@@ -865,6 +865,29 @@
 </head>
 <body>
 
+<!-- ═══════════════ AUTH SCREEN ═══════════════ -->
+<div id="auth-screen" style="position:fixed;inset:0;background:#f0f4f8;z-index:99999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+  <img src="logo_ai.png" style="height:48px;">
+  <img src="logo.png" style="height:56px;">
+  <div style="background:white;border-radius:16px;padding:28px 32px;box-shadow:0 4px 20px rgba(0,0,0,.12);
+    width:min(340px,90vw);display:flex;flex-direction:column;gap:12px;">
+    <p style="text-align:center;font-weight:700;color:#1a237e;margin:0;">
+      パスワードを入力してください
+    </p>
+    <input id="auth-password" type="password" placeholder="パスワード"
+      style="width:100%;padding:12px;border:1.5px solid #ccc;border-radius:8px;font-size:16px;
+      box-sizing:border-box;" onkeydown="if(event.key==='Enter')submitAuth()">
+    <button onclick="submitAuth()"
+      style="background:#1a237e;color:white;border:none;border-radius:8px;
+      padding:12px;font-size:16px;font-weight:700;cursor:pointer;">
+      入力
+    </button>
+    <p id="auth-error" style="color:#c62828;text-align:center;font-size:14px;
+      margin:0;display:none;">パスワードが違います</p>
+  </div>
+</div>
+
 <!-- ═══════════════ HEADER ═══════════════ -->
 <header class="app-header no-print">
   <!-- 左：AI 送迎管理システムロゴ -->
@@ -1206,12 +1229,62 @@ function setStep(n) {
 
 })();
 
-// ページ読み込み時：確定ルート → スナップショットの順で自動復元
-// checkAndShowConfirmedRoute がローディング表示・隠蔽・復元をすべて担う
-(async () => {
+// ─────────────────────────────────────────
+//  Auth
+// ─────────────────────────────────────────
+async function checkAuth() {
+  if (localStorage.getItem('kirari_authenticated') === 'true') {
+    // 認証済み → 通常フロー
+    document.getElementById('auth-screen').style.display = 'none';
+    await startApp();
+    return;
+  }
+  // 未認証 → 認証画面表示、本体を隠す
+  document.querySelector('header.app-header').style.display = 'none';
+  document.querySelector('main.main').style.display = 'none';
+  document.getElementById('absence-alert-bar').style.display = 'none';
+  document.getElementById('toast-container').style.display = 'none';
+}
+
+async function submitAuth() {
+  const pw  = document.getElementById('auth-password').value;
+  const err = document.getElementById('auth-error');
+  err.style.display = 'none';
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'authCheck', password: pw })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      localStorage.setItem('kirari_authenticated', 'true');
+      document.getElementById('auth-screen').style.display = 'none';
+      document.querySelector('header.app-header').style.display = '';
+      document.querySelector('main.main').style.display = '';
+      document.getElementById('absence-alert-bar').style.display = '';
+      document.getElementById('toast-container').style.display = '';
+      await startApp();
+    } else {
+      err.style.display = '';
+      document.getElementById('auth-password').value = '';
+      document.getElementById('auth-password').focus();
+    }
+  } catch(e) {
+    err.style.display = '';
+    err.textContent = '通信エラー。再度お試しください';
+  }
+}
+
+async function startApp() {
   const dateStr = getSelectedDate();
   await checkAndShowConfirmedRoute(dateStr);
   if (!gCurrentStops) await checkAndRestoreOperation();
+}
+
+// ページ読み込み時：認証チェック → 確定ルート → スナップショットの順で自動復元
+(async () => {
+  await checkAuth();
 })();
 
 
