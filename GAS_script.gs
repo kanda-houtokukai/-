@@ -108,6 +108,17 @@ function doGet(e) {
 function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents);
+
+    // ─── 認証チェック分岐 ───────────────────────────
+    // フロントの submitAuth() から呼ばれる
+    // スクリプトプロパティ AUTH_PASSWORD と照合し、ok:true/false を返す
+    var action = body.action || '';
+    if (action === 'authCheck') {
+      var correctPw = PropertiesService.getScriptProperties().getProperty('AUTH_PASSWORD');
+      var ok = (correctPw !== null && body.password === correctPw);
+      return buildJsonResponse({ ok: ok });
+    }
+
     var date       = body.date       || '';
     var stopNum    = Number(body.stopNum);
     var departTime = String(body.departTime || '');
