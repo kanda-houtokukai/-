@@ -1233,7 +1233,14 @@ function setStep(n) {
 //  Auth
 // ─────────────────────────────────────────
 async function checkAuth() {
-  if (localStorage.getItem('kirari_authenticated') === 'true') {
+  let isAuthenticated = false;
+  try {
+    isAuthenticated = localStorage.getItem('kirari_authenticated') === 'true';
+  } catch (e) {
+    // localStorage がブロックされている環境（Safari プライベートなど）
+    console.warn('localStorage unavailable (getItem):', e);
+  }
+  if (isAuthenticated) {
     // 認証済み → 通常フロー
     document.getElementById('auth-screen').style.display = 'none';
     await startApp();
@@ -1258,7 +1265,13 @@ async function submitAuth() {
     });
     const data = await res.json();
     if (data.ok) {
-      localStorage.setItem('kirari_authenticated', 'true');
+      try {
+        localStorage.setItem('kirari_authenticated', 'true');
+      } catch (e) {
+        // localStorage がブロックされている環境では永続化できないが、
+        // そのセッションだけは認証成功として扱う
+        console.warn('localStorage unavailable (setItem):', e);
+      }
       document.getElementById('auth-screen').style.display = 'none';
       document.querySelector('header.app-header').style.display = '';
       document.querySelector('main.main').style.display = '';

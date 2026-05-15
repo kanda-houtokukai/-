@@ -689,6 +689,12 @@ LocalStorage `kirari_authenticated` の値を確認
 - **内容**: index.html の `GAS_URL` 定数（L1170）を、新規デプロイ（バージョン10）の URL に更新
 - **経緯**: Phase 9 の修正後、既存デプロイの更新が反映されない GAS の謎挙動が発生したため、「新しいデプロイ」で完全に新規ウェブアプリを作成。新URLに切り替えることで Phase 9 の修正を確実に反映
 
+### Phase 10（2026-05-15）localStorage try-catch 対応
+
+- **コミット**: `（このコミット）`
+- **内容**: `checkAuth` / `submitAuth` の `localStorage.getItem` / `setItem` を try-catch で囲み、Safari プライベートブラウジングなど localStorage が SecurityError を投げる環境でも認証画面でフリーズしないよう対応
+- **経緯**: 提出前のコード調査で、プライベートブラウジング環境での認証画面フリーズリスクが判明。コンテスト評価者がプライベートモードを使う可能性に備え、最小修正（+18/-2行）で対応
+
 ---
 
 ## 9. 技術的教訓
