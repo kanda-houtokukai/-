@@ -58,7 +58,12 @@ function doGet(e) {
       if (date && rowDate !== date) continue;
 
       var stopNum    = Number(row[1]);
-      var departTime = String(row[2] || '');
+      var departTime = '';
+      if (row[2] instanceof Date) {
+        departTime = Utilities.formatDate(row[2], tz, 'HH:mm');
+      } else {
+        departTime = String(row[2] || '');
+      }
       var ts         = '';
       if (row[3] instanceof Date) {
         ts = Utilities.formatDate(row[3], tz, 'yyyy-MM-dd HH:mm:ss');
