@@ -691,7 +691,7 @@ LocalStorage `kirari_authenticated` の値を確認
 
 ### Phase 10（2026-05-15）localStorage try-catch 対応
 
-- **コミット**: `（このコミット）`
+- **コミット**: `984a5db`
 - **内容**: `checkAuth` / `submitAuth` の `localStorage.getItem` / `setItem` を try-catch で囲み、Safari プライベートブラウジングなど localStorage が SecurityError を投げる環境でも認証画面でフリーズしないよう対応
 - **経緯**: 提出前のコード調査で、プライベートブラウジング環境での認証画面フリーズリスクが判明。コンテスト評価者がプライベートモードを使う可能性に備え、最小修正（+18/-2行）で対応
 
