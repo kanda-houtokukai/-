@@ -1,0 +1,56 @@
+{
+  "_note": "図表の元データ。status: verified=公式ドメインの検索結果で確認, secondary=二次情報, memory=AIの知識（要検証）。数値を直したら python3 scripts/make_charts.py を再実行。",
+  "japan_members_recent": {
+    "years": [2014.9, 2018.5, 2020.9, 2022.1, 2025.1, 2026.4],
+    "labels": ["2014年12月", "2018年7月", "2020年11月", "2022年2月", "2025年2月", "2026年5月"],
+    "values": [88328, 88956, 86873, 84480, 83598, 83297],
+    "clubs": [2287, 2258, 2236, 2223, 2192, 2174],
+    "status": ["verified", "verified", "verified", "verified", "secondary", "verified"],
+    "source_note": "出典: 第2770地区（RI日本事務局統計の転載）ri2770.com、外務省資料（2026年5月20日現在）。2025年2月は要検証。"
+  },
+  "japan_members_long": {
+    "years": [1996, 2000, 2005, 2010, 2014.9, 2018.5, 2020.9, 2022.1, 2026.4],
+    "values": [130000, 113000, 101000, 89000, 88328, 88956, 86873, 84480, 83297],
+    "status": ["memory", "memory", "memory", "memory", "verified", "verified", "verified", "verified", "verified"],
+    "source_note": "1996〜2010年は概数・要検証（RI日本事務局の年次統計で確認のこと）。2014年以降は出典あり。"
+  },
+  "polio_wpv": {
+    "years": [1988, 2000, 2010, 2015, 2020, 2023, 2024, 2025],
+    "values": [350000, 719, 1352, 74, 140, 12, 99, 52],
+    "status": ["verified", "memory", "memory", "memory", "memory", "secondary", "secondary", "secondary"],
+    "source_note": "野生株（WPV）症例。1988年は推計（GPEI）。2000〜2020年は要検証。2023年=パキスタン6+アフガニスタン6、2024年=74+25、2025年=約31+21（報道）。"
+  },
+  "members_by_country": {
+    "names": ["米国", "インド", "日本", "韓国", "ドイツ", "ブラジル"],
+    "values": [270000, 181672, 83489, 65663, 58764, 52085],
+    "status": ["memory", "secondary", "secondary", "secondary", "secondary", "secondary"],
+    "source_note": "インド〜ブラジルはRI国別集計の転載（yumpu、時点不明・要検証）。米国は概数・要検証。"
+  },
+  "world_clubs": {
+    "years": [1905, 1910, 1914, 1921, 1924, 1934, 1947, 2000, 2026],
+    "values": [1, 16, 123, 1000, 1796, 3690, 6000, 30000, 45000],
+    "status": ["verified", "verified", "secondary", "secondary", "secondary", "secondary", "secondary", "memory", "verified"],
+    "source_note": "世界のクラブ数。1910年16クラブ・2026年45,000超はrotary.org。1914〜1947年は二次情報、2000年は概数・要検証。"
+  },
+  "timeline": [
+    {"year": 1905, "label": "シカゴで創立\n（4人）"},
+    {"year": 1910, "label": "全米協会\n16クラブ"},
+    {"year": 1917, "label": "財団の構想\n$26.50"},
+    {"year": 1920, "label": "東京RC創立\n855番目", "jp": true},
+    {"year": 1922, "label": "「国際ロータリー」\nに改称"},
+    {"year": 1932, "label": "四つのテスト\n誕生"},
+    {"year": 1940, "label": "日本がRI脱退\n48クラブ", "jp": true},
+    {"year": 1945, "label": "国連憲章に\n49人が関与"},
+    {"year": 1949, "label": "日本復帰\n7クラブ", "jp": true},
+    {"year": 1952, "label": "米山奨学\n開始", "jp": true},
+    {"year": 1961, "label": "東京国際大会\nアジア初", "jp": true},
+    {"year": 1968, "label": "東ヶ崎潔\n日本初RI会長", "jp": true},
+    {"year": 1985, "label": "ポリオプラス\n開始"},
+    {"year": 1989, "label": "女性会員\n正式承認"},
+    {"year": 2004, "label": "大阪国際大会\n45,381人", "jp": true},
+    {"year": 2012, "label": "田中作次\nRI会長", "jp": true},
+    {"year": 2022, "label": "初の女性\nRI会長"},
+    {"year": 2025, "label": "テーマ廃止→\nメッセージ制"},
+    {"year": 2026, "label": "Create\nLasting Impact"}
+  ]
+}

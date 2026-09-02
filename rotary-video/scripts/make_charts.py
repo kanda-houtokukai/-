@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""ロータリー変遷動画用のグラフ画像を生成するスクリプト。
-データは同フォルダの data.json に置き、数値の出典は 02_数値データ集.md に対応させる。
-実行: python3 scripts/make_charts.py
+"""ロータリー変遷動画用の図表画像を生成する。
+データは scripts/data.json。数値を直したら `python3 scripts/make_charts.py` を再実行するだけで charts/ が更新される。
+status が verified 以外の点は白抜きマーカー＋「要検証」の注記で描く（鉄則5: 未検証の数字を確定値のように見せない）。
 """
 import json, os
 import matplotlib
@@ -21,11 +21,13 @@ for fp in ["/usr/share/fonts/opentype/ipafont-gothic/ipagp.ttf",
         plt.rcParams["font.family"] = font_manager.FontProperties(fname=fp).get_name()
         break
 
-NAVY = "#17458F"   # Rotary royal blue 相当
-GOLD = "#F7A81B"   # Rotary gold 相当
+NAVY = "#17458F"   # Rotary royal blue (PMS 286C) 相当
+GOLD = "#F7A81B"   # Rotary gold (PMS 130C) 相当
 GREY = "#6B6B6B"
+LIGHT = "#E9EEF6"
 plt.rcParams.update({"figure.dpi": 150, "axes.spines.top": False, "axes.spines.right": False,
-                     "axes.titlesize": 16, "axes.labelsize": 12, "font.size": 12})
+                     "axes.titlesize": 20, "axes.labelsize": 13, "font.size": 13,
+                     "axes.titleweight": "bold", "axes.edgecolor": GREY, "xtick.color": GREY, "ytick.color": GREY})
 
 with open(os.path.join(HERE, "data.json"), encoding="utf-8") as f:
     D = json.load(f)
@@ -36,68 +38,128 @@ def save(fig, name):
     plt.close(fig)
     print("wrote", name)
 
-# 1. 日本の会員数推移
-s = D["japan_members"]
+def footnote(ax, text):
+    ax.text(0.0, -0.13, text, transform=ax.transAxes, ha="left", va="top", fontsize=10, color=GREY, wrap=True)
+
+def plot_series(ax, xs, ys, status, color, lw=3):
+    ax.plot(xs, ys, color=color, lw=lw, zorder=2)
+    for x, y, s in zip(xs, ys, status):
+        if s == "verified":
+            ax.plot(x, y, "o", color=color, ms=10, zorder=3)
+        else:
+            ax.plot(x, y, "o", mfc="white", mec=color, mew=2.5, ms=10, zorder=3)
+
+# 1a. 日本の会員数（出典ありの期間のみ）
+s = D["japan_members_recent"]
 fig, ax = plt.subplots(figsize=(12.8, 7.2))
-ax.plot(s["years"], s["values"], color=NAVY, lw=3, marker="o")
-ax.fill_between(s["years"], s["values"], color=NAVY, alpha=0.08)
-ax.set_title("日本のロータリー会員数の推移（人）")
-ax.set_ylim(0, max(s["values"]) * 1.15)
+plot_series(ax, s["years"], s["values"], s["status"], NAVY)
+ax.fill_between(s["years"], s["values"], color=NAVY, alpha=0.06)
+for x, y, lab in zip(s["years"], s["values"], s["labels"]):
+    ax.annotate(f"{y:,}人", (x, y), textcoords="offset points", xytext=(0, 12), ha="center", fontsize=12, color=NAVY)
+ax.set_xticks(s["years"]); ax.set_xticklabels(s["labels"], fontsize=11)
+ax.set_ylim(78000, 92000)
+ax.set_title("日本のロータリー会員数（2014年→2026年）")
 ax.grid(axis="y", alpha=0.3)
-for x, y in zip(s["years"], s["values"]):
-    if x in s.get("label_years", []):
-        ax.annotate(f"{y:,}", (x, y), textcoords="offset points", xytext=(0, 10), ha="center", fontsize=11, color=NAVY)
-ax.text(0.99, 0.02, s["source_note"], transform=ax.transAxes, ha="right", fontsize=9, color=GREY)
-save(fig, "01_japan_members.png")
+ax.text(0.99, 0.95, f"クラブ数 {s['clubs'][0]:,} → {s['clubs'][-1]:,}", transform=ax.transAxes, ha="right", fontsize=13, color=GREY)
+footnote(ax, s["source_note"] + "　白抜き＝要検証")
+save(fig, "01a_japan_members_recent.png")
+
+# 1b. 日本の会員数（長期・要検証点を含む）
+s = D["japan_members_long"]
+fig, ax = plt.subplots(figsize=(12.8, 7.2))
+plot_series(ax, s["years"], s["values"], s["status"], NAVY)
+ax.fill_between(s["years"], s["values"], color=NAVY, alpha=0.06)
+ax.annotate("約13万人（ピーク・要検証）", (s["years"][0], s["values"][0]), textcoords="offset points", xytext=(10, 8), fontsize=12, color=NAVY)
+ax.annotate(f"{s['values'][-1]:,}人\n(2026年5月)", (s["years"][-1], s["values"][-1]), textcoords="offset points", xytext=(-10, 12), ha="right", fontsize=12, color=NAVY)
+ax.set_ylim(0, 150000)
+ax.set_title("日本の会員数は30年で約4割減（要検証の概数を含む長期推移）")
+ax.grid(axis="y", alpha=0.3)
+footnote(ax, s["source_note"] + "　白抜き＝要検証")
+save(fig, "01b_japan_members_long.png")
 
 # 2. 野生株ポリオ症例数
 s = D["polio_wpv"]
 fig, ax = plt.subplots(figsize=(12.8, 7.2))
-ax.bar([str(y) for y in s["years"]], s["values"], color=[GOLD if v == max(s["values"]) else NAVY for v in s["values"]])
+cols = [GOLD if i == 0 else NAVY for i in range(len(s["values"]))]
+bars = ax.bar([str(y) for y in s["years"]], s["values"], color=cols, zorder=2)
+for b, st in zip(bars, s["status"]):
+    if st != "verified":
+        b.set_alpha(0.75); b.set_hatch("//"); b.set_edgecolor("white")
 ax.set_yscale("log")
-ax.set_title("野生株ポリオ症例数（対数目盛・年）")
+ax.set_ylim(1, 2_000_000)
+ax.set_title("野生株ポリオ 年間症例数：35万 → 数十（対数目盛）")
 for i, v in enumerate(s["values"]):
-    ax.text(i, v * 1.15, f"{v:,}", ha="center", fontsize=10)
-ax.grid(axis="y", alpha=0.3, which="both")
-ax.text(0.99, 0.02, s["source_note"], transform=ax.transAxes, ha="right", fontsize=9, color=GREY)
+    ax.text(i, v * 1.3, f"{v:,}", ha="center", fontsize=13, color=NAVY if i else "#8a5a00")
+ax.grid(axis="y", alpha=0.3, which="major")
+footnote(ax, s["source_note"] + "　斜線＝要検証")
 save(fig, "02_polio_cases_log.png")
 
-# 3. 世界の会員数（国別上位）
+# 3. 国別会員数
 s = D["members_by_country"]
 fig, ax = plt.subplots(figsize=(12.8, 7.2))
-names, vals = s["names"][::-1], s["values"][::-1]
-ax.barh(names, vals, color=[GOLD if n == "日本" else NAVY for n in names])
-for i, v in enumerate(vals):
-    ax.text(v + max(vals) * 0.01, i, f"{v:,}", va="center", fontsize=11)
-ax.set_title("国別ロータリアン数（上位）")
-ax.set_xlim(0, max(vals) * 1.18)
-ax.text(0.99, 0.02, s["source_note"], transform=ax.transAxes, ha="right", fontsize=9, color=GREY)
+names, vals, st = s["names"][::-1], s["values"][::-1], s["status"][::-1]
+bars = ax.barh(names, vals, color=[GOLD if n == "日本" else NAVY for n in names], zorder=2)
+for b, sflag in zip(bars, st):
+    if sflag != "verified":
+        b.set_hatch("//"); b.set_edgecolor("white")
+for i, (v, sflag) in enumerate(zip(vals, st)):
+    ax.text(v + max(vals) * 0.01, i, f"{v:,}" + ("（要検証）" if sflag == "memory" else ""), va="center", fontsize=12)
+ax.set_title("国別ロータリアン数（上位・時点は要確認）")
+ax.set_xlim(0, max(vals) * 1.25)
+ax.tick_params(axis="y", labelsize=13)
+footnote(ax, s["source_note"] + "　斜線＝要検証")
 save(fig, "03_members_by_country.png")
 
-# 4. 世界のクラブ数の成長（節目）
-s = D["world_growth"]
+# 4. 世界のクラブ数の成長
+s = D["world_clubs"]
 fig, ax = plt.subplots(figsize=(12.8, 7.2))
-ax.plot(s["years"], s["members"], color=NAVY, lw=3, marker="o")
-ax.set_title("世界のロータリー会員数（節目の年）")
-for x, y in zip(s["years"], s["members"]):
-    ax.annotate(f"{y:,}", (x, y), textcoords="offset points", xytext=(0, 10), ha="center", fontsize=10, color=NAVY)
-ax.set_ylim(0, max(s["members"]) * 1.2)
-ax.grid(axis="y", alpha=0.3)
-ax.text(0.99, 0.02, s["source_note"], transform=ax.transAxes, ha="right", fontsize=9, color=GREY)
-save(fig, "04_world_members.png")
+plot_series(ax, s["years"], s["values"], s["status"], NAVY)
+ax.set_yscale("log")
+ax.set_ylim(0.7, 200000)
+for x, y in zip(s["years"], s["values"]):
+    ax.annotate(f"{y:,}", (x, y), textcoords="offset points", xytext=(0, 12), ha="center", fontsize=12, color=NAVY)
+ax.set_title("世界のロータリークラブ数：1 → 45,000超（対数目盛）")
+ax.grid(axis="y", alpha=0.3, which="major")
+footnote(ax, s["source_note"] + "　白抜き＝要検証")
+save(fig, "04_world_clubs_log.png")
 
-# 5. 年表（横長タイムライン）
+# 5. 年表
 s = D["timeline"]
-fig, ax = plt.subplots(figsize=(19.2, 6))
+fig, ax = plt.subplots(figsize=(19.2, 7.2))
 ys = [e["year"] for e in s]
-ax.hlines(0, min(ys) - 3, max(ys) + 3, color=GREY, lw=2)
+ax.hlines(0, min(ys) - 4, max(ys) + 4, color=GREY, lw=2)
+levels = [1.0, -1.0, 1.9, -1.9]
 for i, e in enumerate(s):
-    up = i % 2 == 0
-    ax.plot([e["year"], e["year"]], [0, 1 if up else -1], color=NAVY if e.get("jp") is None else GOLD, lw=1.5)
-    ax.plot(e["year"], 0, "o", color=NAVY if e.get("jp") is None else GOLD, ms=8)
-    ax.text(e["year"], 1.08 if up else -1.08, f'{e["year"]}\n{e["label"]}', ha="center",
-            va="bottom" if up else "top", fontsize=10)
-ax.set_ylim(-2.4, 2.4)
+    lv = levels[i % 4]
+    c = GOLD if e.get("jp") else NAVY
+    ax.plot([e["year"], e["year"]], [0, lv], color=c, lw=1.5)
+    ax.plot(e["year"], 0, "o", color=c, ms=9, zorder=3)
+    ax.text(e["year"], lv + (0.08 if lv > 0 else -0.08), f'{e["year"]}\n{e["label"]}', ha="center",
+            va="bottom" if lv > 0 else "top", fontsize=11, color="#222")
+ax.set_ylim(-3.2, 3.2)
 ax.axis("off")
-ax.set_title("ロータリー年表（青＝世界／金＝日本）", fontsize=18)
+ax.set_title("ロータリー120年の年表　　●青＝世界　●金＝日本", fontsize=20)
 save(fig, "05_timeline.png")
+
+# 6. 数字カード（章の冒頭に出す「1つの数字」）
+cards = [
+    ("4", "人から始まった\n1905年2月23日・シカゴ"),
+    ("711", "号室\n最初の例会が開かれた部屋"),
+    ("24 / 6", "歯車の歯とスポークの数\n意味は「実際に動く歯車」"),
+    ("$26.50", "ロータリー財団\n最初の寄付（1917年）"),
+    ("855", "番目\n東京RCの世界登録番号（1921年）"),
+    ("48 → 7", "クラブ\n1940年脱退時 → 1949年復帰時"),
+    ("99.9%", "減少\nポリオ症例（1988年比）"),
+    ("8.3%", "日本の女性会員比率\n（世界は約27%・要検証）"),
+    ("$82 → $93", "RI人頭分担金（年額）\n2025-26 → 2028-29"),
+    ("24,830", "人\n米山奨学生の累計（134か国・地域）"),
+]
+for i, (big, small) in enumerate(cards, 1):
+    fig, ax = plt.subplots(figsize=(12.8, 7.2))
+    ax.axis("off")
+    fig.patch.set_facecolor(NAVY)
+    ax.text(0.5, 0.58, big, ha="center", va="center", fontsize=110, color=GOLD, fontweight="bold", transform=ax.transAxes)
+    ax.text(0.5, 0.22, small, ha="center", va="center", fontsize=26, color="white", transform=ax.transAxes, linespacing=1.6)
+    fig.savefig(os.path.join(OUT, f"card_{i:02d}.png"), facecolor=NAVY)
+    plt.close(fig)
+    print("wrote", f"card_{i:02d}.png")
