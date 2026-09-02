@@ -128,6 +128,7 @@ s = D["timeline"]
 fig, ax = plt.subplots(figsize=(19.2, 7.2))
 ys = [e["year"] for e in s]
 ax.hlines(0, min(ys) - 4, max(ys) + 4, color=GREY, lw=2)
+ax.set_xlim(min(ys) - 8, max(ys) + 8)
 levels = [1.0, -1.0, 1.9, -1.9]
 for i, e in enumerate(s):
     lv = levels[i % 4]
