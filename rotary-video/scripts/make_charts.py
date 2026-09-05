@@ -38,6 +38,10 @@ def save(fig, name):
     plt.close(fig)
     print("wrote", name)
 
+def legend_suffix(status, word):
+    """未検証（verified 以外）の点・棒がその図に実在するときだけ凡例文字を返す。"""
+    return ("　" + word + "＝要検証") if any(st != "verified" for st in status) else ""
+
 def footnote(ax, text):
     ax.text(0.0, -0.13, text, transform=ax.transAxes, ha="left", va="top", fontsize=10, color=GREY, wrap=True)
 
@@ -61,7 +65,7 @@ ax.set_ylim(78000, 92000)
 ax.set_title("日本のロータリー会員数（2014年→2026年）")
 ax.grid(axis="y", alpha=0.3)
 ax.text(0.99, 0.95, f"クラブ数 {s['clubs'][0]:,} → {s['clubs'][-1]:,}", transform=ax.transAxes, ha="right", fontsize=13, color=GREY)
-footnote(ax, s["source_note"] + "　白抜き＝要検証")
+footnote(ax, s["source_note"] + legend_suffix(s["status"], "白抜き"))
 save(fig, "01a_japan_members_recent.png")
 
 # 1b. 日本の会員数（確認済みの点のみ。未確認のピーク値は不採用 2026-09-05）
@@ -74,7 +78,7 @@ ax.annotate(f"{s['values'][-1]:,}人\n(2026年5月)", (s["years"][-1], s["values
 ax.set_ylim(0, 150000)
 ax.set_title("日本のロータリー会員数（確認済みの点のみ・2014年→2026年）")
 ax.grid(axis="y", alpha=0.3)
-footnote(ax, s["source_note"] + "　白抜き＝要検証")
+footnote(ax, s["source_note"] + legend_suffix(s["status"], "白抜き"))
 save(fig, "01b_japan_members_long.png")
 
 # 2. 野生株ポリオ症例数
@@ -91,7 +95,7 @@ ax.set_title("野生株ポリオ 年間症例数：35万 → 数十（対数目�
 for i, v in enumerate(s["values"]):
     ax.text(i, v * 1.3, f"{v:,}", ha="center", fontsize=13, color=NAVY if i else "#8a5a00")
 ax.grid(axis="y", alpha=0.3, which="major")
-footnote(ax, s["source_note"] + "　斜線＝要検証")
+footnote(ax, s["source_note"] + legend_suffix(s["status"], "斜線"))
 save(fig, "02_polio_cases_log.png")
 
 # 3. 国別会員数
@@ -107,7 +111,7 @@ for i, (v, sflag) in enumerate(zip(vals, st)):
 ax.set_title("国別ロータリアン数（上位・時点は要確認）")
 ax.set_xlim(0, max(vals) * 1.25)
 ax.tick_params(axis="y", labelsize=13)
-footnote(ax, s["source_note"] + "　斜線＝要検証")
+footnote(ax, s["source_note"] + legend_suffix(s["status"], "斜線"))
 save(fig, "03_members_by_country.png")
 
 # 4. 世界のクラブ数の成長
@@ -120,7 +124,7 @@ for x, y in zip(s["years"], s["values"]):
     ax.annotate(f"{y:,}", (x, y), textcoords="offset points", xytext=(0, 12), ha="center", fontsize=12, color=NAVY)
 ax.set_title("世界のロータリークラブ数：1 → 45,000超（対数目盛）")
 ax.grid(axis="y", alpha=0.3, which="major")
-footnote(ax, s["source_note"] + "　白抜き＝要検証")
+footnote(ax, s["source_note"] + legend_suffix(s["status"], "白抜き"))
 save(fig, "04_world_clubs_log.png")
 
 # 5. 年表
@@ -155,11 +159,14 @@ cards = [
     ("$82 → $93", "RI人頭分担金（年額）\n2025-26 → 2028-29"),
     ("24,830", "人\n米山奨学生の累計（134か国・地域）"),
 ]
-for i, (big, small) in enumerate(cards, 1):
+cards += [(c["big"], c["small"], c.get("size", 110)) for c in D.get("cards_extra", [])]
+for i, card in enumerate(cards, 1):
+    big, small = card[0], card[1]
+    big_size = card[2] if len(card) > 2 else 110
     fig, ax = plt.subplots(figsize=(12.8, 7.2))
     ax.axis("off")
     fig.patch.set_facecolor(NAVY)
-    ax.text(0.5, 0.58, big, ha="center", va="center", fontsize=110, color=GOLD, fontweight="bold", transform=ax.transAxes)
+    ax.text(0.5, 0.58, big, ha="center", va="center", fontsize=big_size, color=GOLD, fontweight="bold", transform=ax.transAxes)
     ax.text(0.5, 0.22, small, ha="center", va="center", fontsize=26, color="white", transform=ax.transAxes, linespacing=1.6)
     fig.savefig(os.path.join(OUT, f"card_{i:02d}.png"), facecolor=NAVY)
     plt.close(fig)
