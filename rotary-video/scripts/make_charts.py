@@ -64,15 +64,15 @@ ax.text(0.99, 0.95, f"クラブ数 {s['clubs'][0]:,} → {s['clubs'][-1]:,}", tr
 footnote(ax, s["source_note"] + "　白抜き＝要検証")
 save(fig, "01a_japan_members_recent.png")
 
-# 1b. 日本の会員数（長期・要検証点を含む）
+# 1b. 日本の会員数（確認済みの点のみ。未確認のピーク値は不採用 2026-09-05）
 s = D["japan_members_long"]
 fig, ax = plt.subplots(figsize=(12.8, 7.2))
 plot_series(ax, s["years"], s["values"], s["status"], NAVY)
 ax.fill_between(s["years"], s["values"], color=NAVY, alpha=0.06)
-ax.annotate("約13万人（ピーク・要検証）", (s["years"][0], s["values"][0]), textcoords="offset points", xytext=(10, 8), fontsize=12, color=NAVY)
+ax.annotate(f"{s['values'][0]:,}人\n(2014年12月)", (s["years"][0], s["values"][0]), textcoords="offset points", xytext=(10, 8), fontsize=12, color=NAVY)
 ax.annotate(f"{s['values'][-1]:,}人\n(2026年5月)", (s["years"][-1], s["values"][-1]), textcoords="offset points", xytext=(-10, 12), ha="right", fontsize=12, color=NAVY)
 ax.set_ylim(0, 150000)
-ax.set_title("日本の会員数は30年で約4割減（要検証の概数を含む長期推移）")
+ax.set_title("日本のロータリー会員数（確認済みの点のみ・2014年→2026年）")
 ax.grid(axis="y", alpha=0.3)
 footnote(ax, s["source_note"] + "　白抜き＝要検証")
 save(fig, "01b_japan_members_long.png")
@@ -151,7 +151,7 @@ cards = [
     ("855", "番目\n東京RCの世界登録番号（1921年）"),
     ("48 → 7", "クラブ\n1940年脱退時 → 1949年復帰時"),
     ("99.9%", "減少\nポリオ症例（1988年比）"),
-    ("8.3%", "日本の女性会員比率\n（世界は約27%・要検証）"),
+    ("8.3%", "日本の女性会員比率（2025年9月）\n世界は27.1%"),
     ("$82 → $93", "RI人頭分担金（年額）\n2025-26 → 2028-29"),
     ("24,830", "人\n米山奨学生の累計（134か国・地域）"),
 ]

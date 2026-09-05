@@ -9,16 +9,16 @@
     "source_note": "出典: 第2770地区（RI日本事務局統計の転載）ri2770.com、外務省資料（2026年5月20日現在）。2025年2月は要検証。"
   },
   "japan_members_long": {
-    "years": [1996, 2000, 2005, 2010, 2014.9, 2018.5, 2020.9, 2022.1, 2026.4],
-    "values": [130000, 113000, 101000, 89000, 88328, 88956, 86873, 84480, 83297],
-    "status": ["memory", "memory", "memory", "memory", "verified", "verified", "verified", "verified", "verified"],
-    "source_note": "1996〜2010年は概数・要検証（RI日本事務局の年次統計で確認のこと）。2014年以降は出典あり。"
+    "years": [2014.9, 2018.5, 2020.9, 2022.1, 2026.4],
+    "values": [88328, 88956, 86873, 84480, 83297],
+    "status": ["verified", "verified", "verified", "verified", "verified"],
+    "source_note": "確認済みの点のみ（2014年12月〜2026年5月）。1996〜2010年のピーク値（約13万人）は一次情報未確認のため不採用（2026-09-05）。"
   },
   "polio_wpv": {
-    "years": [1988, 2000, 2010, 2015, 2020, 2023, 2024, 2025],
-    "values": [350000, 719, 1352, 74, 140, 12, 99, 52],
-    "status": ["verified", "memory", "memory", "memory", "memory", "secondary", "secondary", "secondary"],
-    "source_note": "野生株（WPV）症例。1988年は推計（GPEI）。2000〜2020年は要検証。2023年=パキスタン6+アフガニスタン6、2024年=74+25、2025年=約31+21（報道）。"
+    "years": [1988, 2000, 2010, 2015, 2020, 2023, 2024, 2025, 2026],
+    "values": [350000, 719, 1352, 74, 140, 12, 99, 52, 22],
+    "status": ["verified", "memory", "memory", "memory", "memory", "verified", "verified", "verified", "verified"],
+    "source_note": "野生株（WPV）症例。1988年は推計（GPEI）。2000〜2020年は要検証。2023〜2026年はWHO東地中海地域事務局ポリオ速報（2026年は8月16日週まで。上映1週間前に再取得）。"
   },
   "members_by_country": {
     "names": ["米国", "インド", "日本", "韓国", "ドイツ", "ブラジル"],
@@ -31,6 +31,13 @@
     "values": [1, 16, 123, 1000, 1796, 3690, 6000, 30000, 45000],
     "status": ["verified", "verified", "secondary", "secondary", "secondary", "secondary", "secondary", "memory", "verified"],
     "source_note": "世界のクラブ数。1910年16クラブ・2026年45,000超はrotary.org。1914〜1947年は二次情報、2000年は概数・要検証。"
+  },
+  "women_ratio": {
+    "names": ["日本", "世界"],
+    "values": [8.3, 27.1],
+    "status": ["verified", "verified"],
+    "as_of": "2025年9月",
+    "source_note": "出典: ロータリーボイス（rotaryblogja.org 2025-10-20）。日本全体2024年3月末は7.83%。"
   },
   "timeline": [
     {"year": 1905, "label": "シカゴで創立\n（4人）"},
