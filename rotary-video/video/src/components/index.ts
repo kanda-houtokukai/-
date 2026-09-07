@@ -3,3 +3,8 @@ export { BodyScene, Heading, Body, Em } from "./BodyScene";
 export { SourceLine } from "./SourceLine";
 export { ChapterTransition } from "./ChapterTransition";
 export { BlackFrame } from "./BlackFrame";
+export { CountUpNumber } from "./CountUpNumber";
+export { NameBlock } from "./NameBlock";
+export type { NameItem } from "./NameBlock";
+export { YearStack } from "./YearStack";
+export type { YearRow } from "./YearStack";

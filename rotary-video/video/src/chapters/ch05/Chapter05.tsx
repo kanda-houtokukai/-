@@ -1,13 +1,14 @@
 /**
  * 第5章「48から7へ」（見本実装）
  * 文言は 04_ナレーション台本.md 第5章と 07_絵コンテと画面設計.md §6 に従う。勝手に足さない。
- * 流れ: カード「48 → 7」→（転換：カードが上へ抜け黒へ）→ 黒コマ0.3秒 → 本文A「1940年 昭和15年」→ 本文B「水曜会／金曜会」→ 本文C 復帰の3条件
+ * 流れ: カード「48 → 7」→ 本文0「1935年 来日と月桂樹」→ 黒コマ0.5秒 → 本文A「1940年 昭和15年」→ 本文B「水曜会／金曜会」→ 本文C 復帰の3条件
+ * 転換はすべてハードカット（07 §4-2-1）。
  */
 import React from "react";
 import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from "remotion";
-import { BlackFrame, Body, BodyScene, ChapterTransition, Em, Heading, NumberCard } from "../../components";
+import { BlackFrame, Body, BodyScene, Em, Heading, NumberCard } from "../../components";
 import { EASE, colors, fonts, motion, size } from "../../theme";
-import { CH5, CH5_A, CH5_C } from "./constants";
+import { CH5, CH5_0, CH5_A, CH5_C } from "./constants";
 
 const SOURCE = "出典: 東京ロータリークラブ「東京RCの歴史」（tokyo-rc.gr.jp）／『ロータリーの友』（rotary-no-tomo.jp）";
 
@@ -20,8 +21,74 @@ const fadeIn = (frame: number, start: number, dur = motion.fadeIn): number =>
   });
 
 const Card: React.FC = () => (
-  <NumberCard number="48 → 7" caption={"クラブ数\n1940年 脱退 → 1949年 復帰"} />
+  <NumberCard before="48" after="7" unit="クラブ" caption={"1940年 脱退 → 1949年 復帰"} />
 );
+
+/**
+ * 本文0: 1935年2月9日 ポール・ハリス夫妻 来日。右に金の縦線が下から伸び、1968年の高さで途切れ、
+ * その右隣から二世の線が伸び直して画面上部へ届く（07 §4-2-2）。木や葉は描かない。
+ */
+const Scene0: React.FC = () => {
+  const frame = useCurrentFrame();
+  const AREA_H = 700; // 線の描画領域の高さ
+  const BASE_Y = 40; // 領域下端からの余白
+  const FIRST_H = AREA_H * 0.42; // 1968年で途切れる高さ
+  const grow = (start: number) =>
+    interpolate(frame, [start, start + CH5_0.lineDur], [0, 1], {
+      easing: EASE,
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    });
+  const h1 = FIRST_H * grow(CH5_0.lineStart);
+  const h2 = (AREA_H - FIRST_H * 0.55) * grow(CH5_0.secondLineStart);
+  const years: { label: string; bottom: number }[] = [
+    { label: "1935", bottom: BASE_Y },
+    { label: "1968", bottom: BASE_Y + FIRST_H - 30 },
+    { label: "現在", bottom: BASE_Y + AREA_H - 60 },
+  ];
+  return (
+    <BodyScene source={SOURCE}>
+      <div style={{ display: "flex", alignItems: "center", gap: 120 }}>
+        <div style={{ flex: 1, opacity: fadeIn(frame, 0, CH5_0.textIn) }}>
+          <Heading>1935年2月9日</Heading>
+          <Body style={{ marginTop: 24 }}>ポール・ハリス夫妻 来日</Body>
+          <Body style={{ marginTop: 8 }}>帝国ホテルの庭に月桂樹</Body>
+        </div>
+        <div style={{ position: "relative", width: 520, height: AREA_H }}>
+          {years.map((y, i) => (
+            <div
+              key={y.label}
+              style={{
+                position: "absolute",
+                right: 300,
+                bottom: y.bottom,
+                fontFamily: fonts.body,
+                fontWeight: 400,
+                fontSize: size.cardNote,
+                color: colors.white,
+                opacity: fadeIn(frame, CH5_0.lineStart + i * motion.stagger) * 0.85,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {y.label === "現在" ? "現在（北の丸公園）" : y.label}
+            </div>
+          ))}
+          <div style={{ position: "absolute", left: 260, bottom: BASE_Y, width: 6, height: h1, backgroundColor: colors.gold }} />
+          <div
+            style={{
+              position: "absolute",
+              left: 300,
+              bottom: BASE_Y + FIRST_H * 0.55,
+              width: 6,
+              height: h2,
+              backgroundColor: colors.gold,
+            }}
+          />
+        </div>
+      </div>
+    </BodyScene>
+  );
+};
 
 /** 本文A: 1940年。48個の金の四角が7個を残して消える（0.8秒・伸びるのではなく消える） */
 const SceneA: React.FC = () => {
@@ -154,10 +221,10 @@ export const Chapter05: React.FC = () => {
       <Sequence from={CH5.card.from} durationInFrames={CH5.card.dur} name="カード 48→7">
         <Card />
       </Sequence>
-      <Sequence from={CH5.crossover.from} durationInFrames={CH5.crossover.dur} name="転換（カード→黒）">
-        <ChapterTransition from={<Card />} to={<BlackFrame />} />
+      <Sequence from={CH5.scene0.from} durationInFrames={CH5.scene0.dur} name="0 1935年 来日・月桂樹">
+        <Scene0 />
       </Sequence>
-      <Sequence from={CH5.black.from} durationInFrames={CH5.black.dur} name="黒コマ 0.3秒">
+      <Sequence from={CH5.black.from} durationInFrames={CH5.black.dur} name="黒コマ 0.5秒（ハードカット）">
         <BlackFrame />
       </Sequence>
       <Sequence from={CH5.sceneA.from} durationInFrames={CH5.sceneA.dur} name="A 1940年 脱退">

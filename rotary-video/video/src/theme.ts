@@ -30,8 +30,12 @@ export const fonts = {
 
 /** 文字サイズ（1080p基準・px） */
 export const size = {
-  cardNumberMin: 560,
-  cardNumberMax: 760,
+  /** カード数字: 下限=画面高の40%、上限=画面高の60%、幅は画面幅の85%以内（07 §4-2-4） */
+  cardNumberMin: 1080 * 0.4,
+  cardNumberMax: 1080 * 0.6,
+  /** 対比カードの矢印は数字の0.25倍、単位は0.5倍 */
+  arrowRatio: 0.25,
+  unitRatio: 0.5,
   cardCaption: 56,
   cardNote: 38,
   headingMin: 100,
@@ -65,10 +69,12 @@ export const motion = {
   fadeIn: sec(0.3),
   cardHoldMin: sec(3),
   crossover: sec(0.9),
-  blackFrame: sec(0.3),
+  blackFrame: sec(0.5), // 07 §4-2-1: ハードカットで挟む黒（0.5秒）
   chartGrowMin: sec(1.0),
   chartGrowMax: sec(1.2),
   vanish: sec(0.8),
+  countUp: sec(1.6),
+  lineGrow: sec(1.2),
   stagger: sec(0.4),
 } as const;
 
@@ -93,8 +99,8 @@ export const cardNumberSize = (text: string): number => {
     if (/[ -~]/.test(ch)) return acc + 0.55; // 半角英字
     return acc + 1.0; // 全角
   }, 0);
-  const fit = (layout.width * 0.85) / Math.max(em, 0.5);
-  return Math.min(fit, size.cardNumberMax); // 最小560を下回る場合は85%規則を優先
+  const fitWidth = (layout.width * 0.85) / Math.max(em, 0.5);
+  return Math.max(size.cardNumberMin, Math.min(fitWidth, size.cardNumberMax));
 };
 
 export const waitForFonts = (): Promise<unknown> =>
