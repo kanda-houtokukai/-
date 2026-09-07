@@ -17,66 +17,48 @@ const fadeIn = (frame: number, start: number, dur = motion.fadeIn): number =>
     extrapolateRight: "clamp",
   });
 
-/** 本文A: $26.50 → 5億6,900万ドル。桁の跳ね上がりを縦棒2本の高さ差で見せる（対数） */
+/**
+ * 本文A: $26.50（1917年）と 5億6,900万ドル（2024-25年度）を上下2段の大きな数字で置き、間に「107年」を添える。
+ * 棒・軸・目盛は使わない（対数で下駄を履かせると高さの比が正しくなくなるため・2026-09-07 の判断）。
+ */
 const GivingScene: React.FC = () => {
   const frame = useCurrentFrame();
   const s = data.foundation_giving;
-  const MAX_H = 380;
-  // 桁が違いすぎるため対数で高さを取る（画面に「対数目盛」と明示する）
-  const logs = s.values.map((v) => Math.log10(v));
-  const maxLog = Math.max(...logs);
-  return (
-    <BodyScene source={s.source_note.replace(/。02_数値データ集.*$/, "")} align="start">
-      <div style={{ opacity: fadeIn(frame, 0) }}>
-        <Heading>財団に集まったお金</Heading>
-        <Body style={{ marginTop: 16, opacity: 0.85 }}>対数目盛（桁が違うため）</Body>
+  const row = (i: number, delay: number) => (
+    <div style={{ textAlign: "center", opacity: fadeIn(frame, delay) }}>
+      <div
+        style={{
+          fontFamily: fonts.number,
+          fontWeight: 700,
+          fontSize: size.body * 3.2,
+          lineHeight: 1.05,
+          color: colors.gold,
+        }}
+      >
+        {s.display?.[i]}
       </div>
-      <div style={{ marginTop: 40, display: "flex", alignItems: "flex-end", gap: 200, height: MAX_H + 130 }}>
-        {s.values.map((v, i) => {
-          const start = CH6_A.barStart + i * CH6_A.barGap;
-          const grow = interpolate(frame, [start, start + motion.chartGrowMin], [0, 1], {
-            easing: EASE,
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-          });
-          // 対数でも1917年の棒が潰れて見えなくなるため、最小の高さを持たせる
-          const h = Math.max((logs[i] / maxLog) * MAX_H, 46) * grow;
-          const on = fadeIn(frame, start + motion.chartGrowMin);
-          return (
-            <div key={s.labels?.[i]} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 360 }}>
-              <div
-                style={{
-                  fontFamily: fonts.number,
-                  fontWeight: 700,
-                  fontSize: size.body * 1.25,
-                  color: colors.gold,
-                  opacity: on,
-                  marginBottom: 14,
-                }}
-              >
-                {s.display?.[i]}
-              </div>
-              <div style={{ width: 200, height: h, backgroundColor: colors.gold }} />
-              <div style={{ marginTop: 20, textAlign: "center" }}>
-                <div style={{ fontFamily: fonts.body, fontWeight: 700, fontSize: size.body * 0.8, color: colors.white }}>
-                  {s.labels?.[i]}
-                </div>
-                <div
-                  style={{
-                    fontFamily: fonts.body,
-                    fontWeight: 400,
-                    fontSize: size.cardNote * 0.85,
-                    color: colors.white,
-                    opacity: 0.85 * on,
-                    marginTop: 6,
-                  }}
-                >
-                  {s.sublabels?.[i]}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div style={{ fontFamily: fonts.body, fontWeight: 400, fontSize: size.cardNote, color: colors.white, opacity: 0.9, marginTop: 10 }}>
+        {s.labels?.[i]}　{s.sublabels?.[i]}
+      </div>
+    </div>
+  );
+  return (
+    <BodyScene source={s.source_note.replace(/。02_数値データ集.*$/, "")}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        {row(0, 0)}
+        <div
+          style={{
+            margin: "28px 0",
+            fontFamily: fonts.body,
+            fontWeight: 700,
+            fontSize: size.body,
+            color: colors.white,
+            opacity: fadeIn(frame, CH6_A.spanAt) * 0.9,
+          }}
+        >
+          107年
+        </div>
+        {row(1, CH6_A.secondAt)}
       </div>
     </BodyScene>
   );

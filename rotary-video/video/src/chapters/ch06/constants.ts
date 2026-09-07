@@ -35,8 +35,8 @@ export const CH6 = {
 };
 CH6.total = at;
 
-/** 本文A: 2本の縦棒 */
-export const CH6_A = { barStart: sec(1.0), barGap: sec(0.6) } as const;
+/** 本文A: 上下2段の数字（棒は使わない） */
+export const CH6_A = { spanAt: sec(2.0), secondAt: sec(3.0) } as const;
 
 /** 本文B: 折れ線とカウントダウン（全体で2か所目のカウント演出） */
 export const CH6_B = {

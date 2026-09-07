@@ -126,7 +126,7 @@ const DuesScene: React.FC = () => {
         startAt={CH8_C.chartAt}
       />
       <Body style={{ marginTop: 8, opacity: fadeIn(frame, CH8_C.deficitAt) }}>
-        値上げしなければ2029-30年度までに<Em>4,200万ドルの赤字</Em>という試算が示されました
+        <Em>値上げしなければ</Em>、2029-30年度までに<Em>4,200万ドルの赤字</Em>（引き上げを行わなかった場合の5か年予測）
       </Body>
     </BodyScene>
   );
