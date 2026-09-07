@@ -25,7 +25,14 @@
     "build": "remotion bundle",
     "upgrade": "remotion upgrade",
     "lint": "eslint src && tsc",
-    "render:ch5": "remotion render Chapter05 out/chapter05.mp4"
+    "render:ch00": "remotion render Chapter00 out/chapter00.mp4",
+    "render:ch01": "remotion render Chapter01 out/chapter01.mp4",
+    "render:ch02": "remotion render Chapter02 out/chapter02.mp4",
+    "render:ch03": "remotion render Chapter03 out/chapter03.mp4",
+    "render:ch04": "remotion render Chapter04 out/chapter04.mp4",
+    "render:ch05": "remotion render Chapter05 out/chapter05.mp4",
+    "render:ch07": "remotion render Chapter07 out/chapter07.mp4",
+    "render:ch10": "remotion render Chapter10 out/chapter10.mp4"
   },
   "sideEffects": [
     "*.css"
