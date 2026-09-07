@@ -18,59 +18,76 @@ const fadeIn = (frame: number, start: number, dur = motion.fadeIn): number =>
     extrapolateRight: "clamp",
   });
 
-/** 標語の変遷。語だけが入れ替わる。 */
+/**
+ * 標語の変遷。全文は1行に固定し、変わる3語（主語・profits・serves）だけを金にして同時に置き換える。
+ * 語の幅を固定しているので、置き換わっても後続の語の位置は動かない。年号は左に小さく添える。
+ */
 const MottoScene: React.FC = () => {
   const frame = useCurrentFrame();
-  // 標語の英文は主語だけでなく動詞の活用も変わる（They Profit / One Profits）。
-  // 位置を動かさないため、主語は固定幅の右揃え、続きは同じ位置から始める。
-  const words = [
-    { word: "He", rest: "profits most who serves best", year: "〜2004年" },
-    { word: "They", rest: "profit most who serve best", year: "2004年" },
-    { word: "One", rest: "profits most who serves best", year: "2010年" },
+  // 主語だけでなく動詞の活用も変わる（They Profit / One Profits）。
+  const states = [
+    { year: "1911", subject: "He", verb1: "profits", verb2: "serves" },
+    { year: "2004", subject: "They", verb1: "profit", verb2: "serve" },
+    { year: "2010", subject: "One", verb1: "profits", verb2: "serves" },
   ];
-  // 現在どの語かを決める（位置は固定・語だけ置き換わる）
   let idx = 0;
   CH3_A.wordSwap.forEach((f, i) => {
     if (frame >= f) idx = i;
   });
-  const swapOpacity = interpolate(
+  // 3語は同時に0.4秒で置き換わる
+  const swap = interpolate(
     frame,
-    [CH3_A.wordSwap[idx], CH3_A.wordSwap[idx] + motion.fadeIn],
+    [CH3_A.wordSwap[idx], CH3_A.wordSwap[idx] + CH3_A.swapDur],
     [0, 1],
     { easing: EASE, extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
+  const st = states[idx];
+  /** 金の語。幅は最長の語に合わせて固定してあるので、置き換わっても後続の位置は動かない。 */
+  const Word: React.FC<{ text: string; width: number }> = ({ text, width }) => (
+    <span
+      style={{
+        display: "inline-block",
+        width,
+        textAlign: "center",
+        color: colors.gold,
+        fontWeight: 700,
+        opacity: swap,
+      }}
+    >
+      {text}
+    </span>
   );
   return (
     <BodyScene source={SOURCE} align="start">
       <div style={{ opacity: fadeIn(frame, 0) }}>
         <Heading>超我の奉仕</Heading>
         <Body style={{ marginTop: 20, opacity: fadeIn(frame, CH3_A.serviceAt) }}>
-          公式標語は<Em>1950年</Em>、第一標語は<Em>1989年</Em>
+          Service Above Self。<Em>1989年</Em>の規定審議会で<Em>第一標語</Em>と定められました
         </Body>
       </div>
-      <div style={{ marginTop: 80, opacity: fadeIn(frame, CH3_A.wordSwap[0] - motion.stagger) }}>
-        <Body>最もよく奉仕する者、最も多く報いられる</Body>
-        <div style={{ marginTop: 28, display: "flex", alignItems: "baseline" }}>
-          <div style={{ width: 300, textAlign: "right", marginRight: 24 }}>
+      <div style={{ marginTop: 72, opacity: fadeIn(frame, CH3_A.wordSwap[0] - motion.stagger) }}>
+        <Body>もう一つの標語「最もよく奉仕する者、最も多く報いられる」</Body>
+        <div style={{ marginTop: 36, display: "flex", alignItems: "baseline" }}>
+          <div style={{ width: 150 }}>
             <span
               style={{
                 fontFamily: fonts.number,
                 fontWeight: 700,
-                fontSize: size.headingMax,
-                color: colors.gold,
-                opacity: swapOpacity,
+                fontSize: size.body,
+                color: colors.white,
+                opacity: 0.85 * swap,
               }}
             >
-              {words[idx].word}
+              {st.year}
             </span>
           </div>
-          <span style={{ fontFamily: fonts.body, fontWeight: 400, fontSize: size.body, color: colors.white, opacity: swapOpacity }}>
-            {words[idx].rest}
-          </span>
-        </div>
-        <div style={{ marginLeft: 0, width: 300, textAlign: "right", opacity: swapOpacity }}>
-          <span style={{ fontFamily: fonts.body, fontWeight: 400, fontSize: size.cardNote, color: colors.white, opacity: 0.85 }}>
-            {words[idx].year}
-          </span>
+          <div style={{ fontFamily: fonts.body, fontWeight: 400, fontSize: size.body * 1.1, color: colors.white, whiteSpace: "nowrap" }}>
+            <Word text={st.subject} width={175} />
+            <Word text={st.verb1} width={255} />
+            most who
+            <Word text={st.verb2} width={225} />
+            best
+          </div>
         </div>
       </div>
     </BodyScene>

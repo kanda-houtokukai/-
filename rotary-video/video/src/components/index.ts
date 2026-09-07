@@ -8,3 +8,7 @@ export { NameBlock } from "./NameBlock";
 export type { NameItem } from "./NameBlock";
 export { YearStack } from "./YearStack";
 export type { YearRow } from "./YearStack";
+export { LogLineChart } from "./charts/LogLineChart";
+export { StepChart } from "./charts/StepChart";
+export { BarPair } from "./charts/BarPair";
+export { LineChart } from "./charts/LineChart";

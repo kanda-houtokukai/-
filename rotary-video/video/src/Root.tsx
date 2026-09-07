@@ -10,10 +10,16 @@ import { Chapter03 } from "./chapters/ch03/Chapter03";
 import { CH3 } from "./chapters/ch03/constants";
 import { Chapter04 } from "./chapters/ch04/Chapter04";
 import { CH4 } from "./chapters/ch04/constants";
+import { Chapter06 } from "./chapters/ch06/Chapter06";
+import { CH6 } from "./chapters/ch06/constants";
 import { Chapter05 } from "./chapters/ch05/Chapter05";
 import { CH5 } from "./chapters/ch05/constants";
 import { Chapter07 } from "./chapters/ch07/Chapter07";
 import { CH7 } from "./chapters/ch07/constants";
+import { Chapter08 } from "./chapters/ch08/Chapter08";
+import { CH8 } from "./chapters/ch08/constants";
+import { Chapter09 } from "./chapters/ch09/Chapter09";
+import { CH9 } from "./chapters/ch09/constants";
 import { Chapter10 } from "./chapters/ch10/Chapter10";
 import { CH10 } from "./chapters/ch10/constants";
 import { FPS, layout } from "./theme";
@@ -29,7 +35,10 @@ export const RemotionRoot: React.FC = () => {
       <Composition id="Chapter03" component={Chapter03} durationInFrames={CH3.total} {...common} />
       <Composition id="Chapter04" component={Chapter04} durationInFrames={CH4.total} {...common} />
       <Composition id="Chapter05" component={Chapter05} durationInFrames={CH5.total} {...common} />
+      <Composition id="Chapter06" component={Chapter06} durationInFrames={CH6.total} {...common} />
       <Composition id="Chapter07" component={Chapter07} durationInFrames={CH7.total} {...common} />
+      <Composition id="Chapter08" component={Chapter08} durationInFrames={CH8.total} {...common} />
+      <Composition id="Chapter09" component={Chapter09} durationInFrames={CH9.total} {...common} />
       <Composition id="Chapter10" component={Chapter10} durationInFrames={CH10.total} {...common} />
     </>
   );

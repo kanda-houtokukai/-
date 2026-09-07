@@ -29,7 +29,9 @@ export const CH3 = {
 /** 標語の語が置き換わるタイミング（位置は動かさない） */
 export const CH3_A = {
   serviceAt: sec(0.6),
-  wordSwap: [sec(9.0), sec(13.0), sec(17.0)],
+  wordSwap: [sec(9.0), sec(14.0), sec(19.0)],
+  /** 3語同時に置き換わる時間 */
+  swapDur: sec(0.4),
 } as const;
 
 export const CH3_B = { lineStart: sec(0.8) } as const;
