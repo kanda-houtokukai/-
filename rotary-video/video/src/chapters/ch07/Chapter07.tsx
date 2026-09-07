@@ -27,14 +27,14 @@ const CONVENTIONS = [
 /** 3大会の棒比較 */
 const ConventionScene: React.FC = () => {
   const frame = useCurrentFrame();
-  const MAX_H = 470;
+  const MAX_H = 330;
   const max = Math.max(...CONVENTIONS.map((c) => c.value));
   return (
     <BodyScene source={SOURCE} align="start">
       <div style={{ opacity: fadeIn(frame, 0) }}>
         <Heading>日本で開かれた国際大会</Heading>
       </div>
-      <div style={{ marginTop: 40, display: "flex", alignItems: "flex-end", gap: 120, height: MAX_H + 120 }}>
+      <div style={{ marginTop: 32, display: "flex", alignItems: "flex-end", gap: 110 }}>
         {CONVENTIONS.map((c, i) => {
           const start = CH7_A.barStart + i * CH7_A.barGap;
           const grow = interpolate(frame, [start, start + CH7_A.barDur], [0, 1], {
@@ -45,7 +45,7 @@ const ConventionScene: React.FC = () => {
           const h = (c.value / max) * MAX_H * grow;
           const labelOn = fadeIn(frame, start + CH7_A.barDur);
           return (
-            <div key={c.year} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 300 }}>
+            <div key={c.year} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 340 }}>
               <div
                 style={{
                   fontFamily: fonts.number,
@@ -67,7 +67,7 @@ const ConventionScene: React.FC = () => {
                   style={{
                     fontFamily: fonts.body,
                     fontWeight: 400,
-                    fontSize: size.cardNote * 0.85,
+                    fontSize: size.cardNote * 0.8,
                     color: colors.white,
                     opacity: 0.85 * labelOn,
                     marginTop: 6,

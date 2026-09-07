@@ -21,10 +21,12 @@ const fadeIn = (frame: number, start: number, dur = motion.fadeIn): number =>
 /** 標語の変遷。語だけが入れ替わる。 */
 const MottoScene: React.FC = () => {
   const frame = useCurrentFrame();
+  // 標語の英文は主語だけでなく動詞の活用も変わる（They Profit / One Profits）。
+  // 位置を動かさないため、主語は固定幅の右揃え、続きは同じ位置から始める。
   const words = [
-    { word: "He", year: "〜2004年" },
-    { word: "They", year: "2004年" },
-    { word: "One", year: "2010年" },
+    { word: "He", rest: "profits most who serves best", year: "〜2004年" },
+    { word: "They", rest: "profit most who serve best", year: "2004年" },
+    { word: "One", rest: "profits most who serves best", year: "2010年" },
   ];
   // 現在どの語かを決める（位置は固定・語だけ置き換わる）
   let idx = 0;
@@ -61,8 +63,8 @@ const MottoScene: React.FC = () => {
               {words[idx].word}
             </span>
           </div>
-          <span style={{ fontFamily: fonts.body, fontWeight: 400, fontSize: size.body, color: colors.white }}>
-            profits most who serves best
+          <span style={{ fontFamily: fonts.body, fontWeight: 400, fontSize: size.body, color: colors.white, opacity: swapOpacity }}>
+            {words[idx].rest}
           </span>
         </div>
         <div style={{ marginLeft: 0, width: 300, textAlign: "right", opacity: swapOpacity }}>
